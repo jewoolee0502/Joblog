@@ -1,0 +1,82 @@
+// Prisma schema — mirrors PRD §6.2
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                    String         @id
+  email                 String         @unique
+  gmailRefreshToken     String?        @map("gmail_refresh_token")
+  gmailLastPolledAt     DateTime?      @map("gmail_last_polled_at") @db.Timestamptz
+  outlookRefreshToken   String?        @map("outlook_refresh_token")
+  outlookLastPolledAt   DateTime?      @map("outlook_last_polled_at") @db.Timestamptz
+  nudgeEmailEnabled     Boolean        @default(true) @map("nudge_email_enabled")
+  timezone              String         @default("America/Toronto")
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  applications          Application[]
+
+  @@map("users")
+}
+
+model Application {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  companyName    String           @map("company_name")
+  roleTitle      String           @map("role_title")
+  jobUrl         String?          @map("job_url")
+  jdSnapshot     String?          @map("jd_snapshot")
+  status         String           @default("SAVED")
+  source         String           @default("other")
+  appliedAt      DateTime?        @map("applied_at") @db.Timestamptz
+  lastUpdatedAt  DateTime         @default(now()) @updatedAt @map("last_updated_at") @db.Timestamptz
+  contactName    String?          @map("contact_name")
+  contactEmail   String?          @map("contact_email")
+  notes          String?
+  tags           String[]         @default([])
+  salaryRange    String?          @map("salary_range")
+  location       String?
+  isRemote       Boolean          @default(false) @map("is_remote")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  history        StatusHistory[]
+  nudges         Nudge[]
+
+  @@index([userId, status], map: "idx_applications_user_status")
+  @@map("applications")
+}
+
+model StatusHistory {
+  id             String       @id @default(uuid())
+  applicationId  String       @map("application_id")
+  fromStatus     String?      @map("from_status")
+  toStatus       String       @map("to_status")
+  trigger        String       // 'manual' | 'email_auto' | 'nudge'
+  triggerDetail  String?      @map("trigger_detail")
+  changedAt      DateTime     @default(now()) @map("changed_at") @db.Timestamptz
+
+  application    Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId], map: "idx_status_history_application")
+  @@map("status_history")
+}
+
+model Nudge {
+  id             String       @id @default(uuid())
+  applicationId  String       @map("application_id")
+  nudgeType      String       @map("nudge_type")
+  message        String
+  isDismissed    Boolean      @default(false) @map("is_dismissed")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  application    Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("nudges")
+}
