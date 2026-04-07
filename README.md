@@ -161,17 +161,17 @@ Every `/api/*` route runs through `authMiddleware`, which sets `req.userId`. Eve
 
 ## Roadmap
 
-| Week | Deliverable                                              | Status |
-| ---- | -------------------------------------------------------- | ------ |
-| 1    | React + Vite scaffold, kanban UI, CRUD, drag-and-drop    | ✅     |
-| 2    | Express API, Supabase + Prisma, real persistence         | ✅     |
-| 3    | Gmail OAuth, inbox polling, keyword classifier           | ⏳     |
-| 4    | Outlook OAuth + Microsoft Graph polling                  |        |
-| 5    | Claude API classifier, auto-advance, undo toast          |        |
-| 6    | Browser extension (LinkedIn + Greenhouse)                |        |
-| 7    | Follow-up nudge cron + in-app display                    |        |
-| 8    | Analytics dashboard (funnel, response by source)         |        |
-| 9    | Polish: PWA, error handling, README                      |        |
+Click a checkbox on GitHub to mark a week complete (creates a commit on the current branch).
+
+- [x] **Week 1** — React + Vite scaffold, kanban UI, CRUD, drag-and-drop
+- [x] **Week 2** — Express API, Supabase + Prisma, real persistence
+- [ ] **Week 3** — Gmail OAuth, inbox polling, keyword classifier
+- [ ] **Week 4** — Outlook OAuth + Microsoft Graph polling
+- [ ] **Week 5** — Claude API classifier, auto-advance, undo toast
+- [ ] **Week 6** — Browser extension (LinkedIn + Greenhouse)
+- [ ] **Week 7** — Follow-up nudge cron + in-app display
+- [ ] **Week 8** — Analytics dashboard (funnel, response by source)
+- [ ] **Week 9** — Polish: PWA, error handling, README
 
 ## Notes
 
