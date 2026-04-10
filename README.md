@@ -56,35 +56,37 @@ Visit **http://localhost:5173**. You should see 6 seeded applications loaded fro
 
 ### Verifying the backend
 
-| What | Command / URL |
-| --- | --- |
-| Health check | `curl http://localhost:4000/health` |
-| List apps | `curl http://localhost:4000/api/applications` |
-| Analytics | `curl http://localhost:4000/api/analytics/summary` |
-| In the UI | Drag a card → reload the page → status persists (Week 1 lost it on reload) |
-| In Supabase | Dashboard → Table Editor → `applications` |
+| What         | Command / URL                                                              |
+| ------------ | -------------------------------------------------------------------------- |
+| Health check | `curl http://localhost:4000/health`                                        |
+| List apps    | `curl http://localhost:4000/api/applications`                              |
+| Analytics    | `curl http://localhost:4000/api/analytics/summary`                         |
+| In the UI    | Drag a card → reload the page → status persists (Week 1 lost it on reload) |
+| In Supabase  | Dashboard → Table Editor → `applications`                                  |
 
 If the frontend shows a red banner ("API error: ..."), the backend isn't reachable — check the `[api]` stream in your `npm run dev` terminal.
 
 ## Scripts
 
 ### Root (frontend + orchestration)
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start frontend + backend together via `concurrently` |
-| `npm run dev:web` | Frontend only (Vite, port 5173) |
-| `npm run dev:api` | Backend only (proxies to `server/`, port 4000) |
-| `npm run build` | Production frontend build |
-| `npm run lint` | TypeScript typecheck |
+
+| Command           | Purpose                                              |
+| ----------------- | ---------------------------------------------------- |
+| `npm run dev`     | Start frontend + backend together via `concurrently` |
+| `npm run dev:web` | Frontend only (Vite, port 5173)                      |
+| `npm run dev:api` | Backend only (proxies to `server/`, port 4000)       |
+| `npm run build`   | Production frontend build                            |
+| `npm run lint`    | TypeScript typecheck                                 |
 
 ### `server/`
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Express in watch mode via `tsx` |
-| `npm run build` | Compile TS → `dist/` |
-| `npm run seed` | Seed dev user + 6 mock applications (idempotent) |
-| `npm run prisma:migrate` | Create + apply a new migration |
-| `npm run prisma:studio` | Browse the DB visually |
+
+| Command                  | Purpose                                          |
+| ------------------------ | ------------------------------------------------ |
+| `npm run dev`            | Express in watch mode via `tsx`                  |
+| `npm run build`          | Compile TS → `dist/`                             |
+| `npm run seed`           | Seed dev user + 6 mock applications (idempotent) |
+| `npm run prisma:migrate` | Create + apply a new migration                   |
+| `npm run prisma:studio`  | Browse the DB visually                           |
 
 ## Project structure
 
@@ -146,14 +148,14 @@ The frontend is **never** the source of truth — Supabase is. Reloading the pag
 
 ## Where to make changes
 
-| You want to... | Edit |
-| --- | --- |
-| Change schema | `server/prisma/schema.prisma` → `npx prisma migrate dev --name your_change` |
-| Add a new endpoint | New file in `server/src/routes/` → mount in `server/src/index.ts` |
-| Add a new API call from the frontend | Method in `src/lib/api.ts` → call from `src/store/applicationStore.ts` |
-| Add new UI | Component in `src/components/` → wire to store |
-| Change stage colors / labels / stale thresholds | `src/types.ts` and `src/lib/utils.ts` |
-| Swap dev auth for real Clerk | `server/src/auth.ts` (search for `TODO: clerk`) |
+| You want to...                                  | Edit                                                                        |
+| ----------------------------------------------- | --------------------------------------------------------------------------- |
+| Change schema                                   | `server/prisma/schema.prisma` → `npx prisma migrate dev --name your_change` |
+| Add a new endpoint                              | New file in `server/src/routes/` → mount in `server/src/index.ts`           |
+| Add a new API call from the frontend            | Method in `src/lib/api.ts` → call from `src/store/applicationStore.ts`      |
+| Add new UI                                      | Component in `src/components/` → wire to store                              |
+| Change stage colors / labels / stale thresholds | `src/types.ts` and `src/lib/utils.ts`                                       |
+| Swap dev auth for real Clerk                    | `server/src/auth.ts` (search for `TODO: clerk`)                             |
 
 ## Multi-tenancy from day one
 
@@ -161,17 +163,17 @@ Every `/api/*` route runs through `authMiddleware`, which sets `req.userId`. Eve
 
 ## Roadmap
 
-Click a checkbox on GitHub to mark a week complete (creates a commit on the current branch).
-
-- [x] **Week 1** — React + Vite scaffold, kanban UI, CRUD, drag-and-drop
-- [x] **Week 2** — Express API, Supabase + Prisma, real persistence
-- [ ] **Week 3** — Gmail OAuth, inbox polling, keyword classifier
-- [ ] **Week 4** — Outlook OAuth + Microsoft Graph polling
-- [ ] **Week 5** — Claude API classifier, auto-advance, undo toast
-- [ ] **Week 6** — Browser extension (LinkedIn + Greenhouse)
-- [ ] **Week 7** — Follow-up nudge cron + in-app display
-- [ ] **Week 8** — Analytics dashboard (funnel, response by source)
-- [ ] **Week 9** — Polish: PWA, error handling, README
+| Week | Deliverable                                           | Status |
+| ---- | ----------------------------------------------------- | ------ |
+| 1    | React + Vite scaffold, kanban UI, CRUD, drag-and-drop | ✅     |
+| 2    | Express API, Supabase + Prisma, real persistence      | ✅     |
+| 3    | Gmail OAuth, inbox polling, keyword classifier        | ⏳     |
+| 4    | Outlook OAuth + Microsoft Graph polling               |        |
+| 5    | Claude API classifier, auto-advance, undo toast       |        |
+| 6    | Browser extension (LinkedIn + Greenhouse)             |        |
+| 7    | Follow-up nudge cron + in-app display                 |        |
+| 8    | Analytics dashboard (funnel, response by source)      |        |
+| 9    | Polish: PWA, error handling, README                   |        |
 
 ## Notes
 
