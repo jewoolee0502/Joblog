@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { ApplicationDialog } from '@/components/ApplicationDialog';
 import { SummaryBar } from '@/components/SummaryBar';
@@ -12,7 +12,15 @@ type DialogState =
 
 export default function App() {
   const applications = useApplicationStore((s) => s.applications);
+  const isLoading = useApplicationStore((s) => s.isLoading);
+  const isLoaded = useApplicationStore((s) => s.isLoaded);
+  const error = useApplicationStore((s) => s.error);
+  const loadApplications = useApplicationStore((s) => s.loadApplications);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
 
   const openCreate = (status: ApplicationStatus = 'SAVED') =>
     setDialog({ open: true, mode: 'create', initialStatus: status });
@@ -49,6 +57,13 @@ export default function App() {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col px-6 py-6">
+        {error && (
+          <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <strong className="font-semibold">API error:</strong> {error}. Make sure the backend is running at{' '}
+            <code className="rounded bg-red-100 px-1">http://localhost:4000</code>.
+          </div>
+        )}
+
         <SummaryBar />
 
         <div className="mt-6 flex min-h-0 flex-1 flex-col">
@@ -57,7 +72,13 @@ export default function App() {
             <span className="text-xs text-slate-500">Drag cards between columns to update status</span>
           </div>
           <div className="min-h-0 flex-1">
-            <KanbanBoard onCardClick={openEdit} onAddClick={openCreate} />
+            {!isLoaded && isLoading ? (
+              <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                Loading applications...
+              </div>
+            ) : (
+              <KanbanBoard onCardClick={openEdit} onAddClick={openCreate} />
+            )}
           </div>
         </div>
       </main>

@@ -1,107 +1,129 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { Application, ApplicationStatus, StatusHistoryEntry } from '@/types';
-import { mockApplications } from '@/data/mockApplications';
-
-const uid = () =>
-  globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-export type NewApplicationInput = Omit<
-  Application,
-  'id' | 'createdAt' | 'lastUpdatedAt' | 'history' | 'tags' | 'isRemote'
-> & {
-  tags?: string[];
-  isRemote?: boolean;
-};
+import type { Application, ApplicationStatus } from '@/types';
+import {
+  applicationsApi,
+  type CreateApplicationPayload,
+  type PatchApplicationPayload,
+} from '@/lib/api';
 
 interface ApplicationStoreState {
   applications: Application[];
-  createApplication: (input: NewApplicationInput) => Application;
-  updateApplication: (id: string, patch: Partial<Application>) => void;
-  deleteApplication: (id: string) => void;
-  moveApplication: (id: string, toStatus: ApplicationStatus, trigger?: StatusHistoryEntry['trigger'], triggerDetail?: string) => void;
-  reset: () => void;
+  isLoading: boolean;
+  isLoaded: boolean;
+  error: string | null;
+
+  loadApplications: () => Promise<void>;
+  createApplication: (input: CreateApplicationPayload) => Promise<Application | null>;
+  updateApplication: (id: string, patch: PatchApplicationPayload) => Promise<void>;
+  deleteApplication: (id: string) => Promise<void>;
+  moveApplication: (
+    id: string,
+    toStatus: ApplicationStatus,
+    trigger?: 'manual' | 'email_auto' | 'nudge',
+    triggerDetail?: string,
+  ) => Promise<void>;
 }
 
-export const useApplicationStore = create<ApplicationStoreState>()(
-  persist(
-    (set, get) => ({
-      applications: mockApplications,
+export const useApplicationStore = create<ApplicationStoreState>()((set, get) => ({
+  applications: [],
+  isLoading: false,
+  isLoaded: false,
+  error: null,
 
-      createApplication: (input) => {
-        const now = new Date().toISOString();
-        const app: Application = {
-          id: uid(),
-          companyName: input.companyName,
-          roleTitle: input.roleTitle,
-          jobUrl: input.jobUrl,
-          jdSnapshot: input.jdSnapshot,
-          status: input.status,
-          source: input.source,
-          appliedAt: input.appliedAt,
-          contactName: input.contactName,
-          contactEmail: input.contactEmail,
-          notes: input.notes,
-          salaryRange: input.salaryRange,
-          location: input.location,
-          tags: input.tags ?? [],
-          isRemote: input.isRemote ?? false,
-          createdAt: now,
-          lastUpdatedAt: now,
-          history: [
-            {
-              id: uid(),
-              fromStatus: null,
-              toStatus: input.status,
-              trigger: 'manual',
-              changedAt: now,
-            },
-          ],
-        };
-        set({ applications: [app, ...get().applications] });
-        return app;
-      },
+  loadApplications: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const applications = await applicationsApi.list();
+      set({ applications, isLoading: false, isLoaded: true });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to load applications',
+      });
+    }
+  },
 
-      updateApplication: (id, patch) => {
-        set({
-          applications: get().applications.map((a) =>
-            a.id === id ? { ...a, ...patch, lastUpdatedAt: new Date().toISOString() } : a,
-          ),
-        });
-      },
+  createApplication: async (input) => {
+    try {
+      const created = await applicationsApi.create(input);
+      set({ applications: [created, ...get().applications] });
+      return created;
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : 'Failed to create application' });
+      return null;
+    }
+  },
 
-      deleteApplication: (id) => {
-        set({ applications: get().applications.filter((a) => a.id !== id) });
-      },
+  updateApplication: async (id, patch) => {
+    const previous = get().applications;
+    // Optimistic update
+    set({
+      applications: previous.map((a) =>
+        a.id === id ? { ...a, ...patch, lastUpdatedAt: new Date().toISOString() } : a,
+      ),
+    });
+    try {
+      const updated = await applicationsApi.patch(id, patch);
+      set({ applications: get().applications.map((a) => (a.id === id ? updated : a)) });
+    } catch (err) {
+      set({
+        applications: previous,
+        error: err instanceof Error ? err.message : 'Failed to update application',
+      });
+    }
+  },
 
-      moveApplication: (id, toStatus, trigger = 'manual', triggerDetail) => {
-        const now = new Date().toISOString();
-        set({
-          applications: get().applications.map((a) => {
-            if (a.id !== id || a.status === toStatus) return a;
-            const entry: StatusHistoryEntry = {
-              id: uid(),
-              fromStatus: a.status,
-              toStatus,
-              trigger,
-              triggerDetail,
-              changedAt: now,
-            };
-            return {
+  deleteApplication: async (id) => {
+    const previous = get().applications;
+    set({ applications: previous.filter((a) => a.id !== id) });
+    try {
+      await applicationsApi.remove(id);
+    } catch (err) {
+      set({
+        applications: previous,
+        error: err instanceof Error ? err.message : 'Failed to delete application',
+      });
+    }
+  },
+
+  moveApplication: async (id, toStatus, trigger = 'manual', triggerDetail) => {
+    const previous = get().applications;
+    const current = previous.find((a) => a.id === id);
+    if (!current || current.status === toStatus) return;
+
+    // Optimistic: update status locally with a synthetic history entry
+    const now = new Date().toISOString();
+    set({
+      applications: previous.map((a) =>
+        a.id === id
+          ? {
               ...a,
               status: toStatus,
               lastUpdatedAt: now,
-              appliedAt: a.appliedAt ?? (toStatus === 'APPLIED' ? now : a.appliedAt),
-              history: [...a.history, entry],
-            };
-          }),
-        });
-      },
+              history: [
+                ...a.history,
+                {
+                  id: `temp-${now}`,
+                  fromStatus: a.status,
+                  toStatus,
+                  trigger,
+                  triggerDetail,
+                  changedAt: now,
+                },
+              ],
+            }
+          : a,
+      ),
+    });
 
-      reset: () => set({ applications: mockApplications }),
-    }),
-    {
-      name: 'joblog-applications-v1',
-    },
-  ),
-);
+    try {
+      const updated = await applicationsApi.patch(id, { status: toStatus, trigger, triggerDetail });
+      set({ applications: get().applications.map((a) => (a.id === id ? updated : a)) });
+    } catch (err) {
+      set({
+        applications: previous,
+        error: err instanceof Error ? err.message : 'Failed to move application',
+      });
+    }
+  },
+}));

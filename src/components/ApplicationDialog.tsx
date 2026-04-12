@@ -64,7 +64,6 @@ const fromApp = (a: Application): FormState => ({
 export function ApplicationDialog({ open, mode, initialStatus, application, onClose }: Props) {
   const createApplication = useApplicationStore((s) => s.createApplication);
   const updateApplication = useApplicationStore((s) => s.updateApplication);
-  const moveApplication = useApplicationStore((s) => s.moveApplication);
   const deleteApplication = useApplicationStore((s) => s.deleteApplication);
 
   const [form, setForm] = useState<FormState>(empty(initialStatus));
@@ -80,7 +79,7 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const tags = form.tagsRaw
       .split(',')
@@ -100,29 +99,26 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
       location: form.location.trim() || undefined,
       isRemote: form.isRemote,
       tags,
+      status: form.status,
     };
 
     if (!base.companyName || !base.roleTitle) return;
 
     if (mode === 'create') {
-      createApplication({
+      await createApplication({
         ...base,
-        status: form.status,
         appliedAt: form.status === 'APPLIED' ? new Date().toISOString() : undefined,
       });
     } else if (application) {
-      updateApplication(application.id, base);
-      if (form.status !== application.status) {
-        moveApplication(application.id, form.status, 'manual');
-      }
+      await updateApplication(application.id, base);
     }
     onClose();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!application) return;
     if (!confirm(`Delete application for ${application.companyName}?`)) return;
-    deleteApplication(application.id);
+    await deleteApplication(application.id);
     onClose();
   };
 
