@@ -1,137 +1,69 @@
 # Joblog
 
-An AI-powered job application tracker. Personal CRM for high-volume job search — Kanban pipeline, automated stage detection from email (Gmail + Outlook), follow-up nudges, and analytics. See [`job-tracker-prd.md`](https://github.com/) for the full product spec.
+An AI-powered job application tracker. Personal CRM for high-volume job search — Kanban pipeline, automated stage detection from email (Gmail + Outlook), follow-up nudges, and analytics.
+
+**Target user:** Technical job seekers running 20+ concurrent applications who use Gmail or Outlook.
 
 ## Status
 
-**Week 2 complete — real persistence on Supabase.**
+**Week 3 complete — Gmail + Outlook OAuth, email services, Claude classifier, cron scanner, settings panel.**
 
 - [x] **Week 1** — Vite + React + TS + Tailwind scaffold, kanban with drag-and-drop, CRUD dialog, stale-card highlighting, summary bar
 - [x] **Week 2** — Express + Prisma backend, Postgres on Supabase, REST API, dev-mode auth middleware (Clerk swap-point ready), frontend wired to API with optimistic updates
-- [ ] **Week 3** — Gmail OAuth + inbox polling + keyword classifier
-- [ ] Weeks 4–9 — see roadmap below
+- [x] **Week 3** — Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel
+- [ ] Weeks 4–9 — see [roadmap](#roadmap) below
 
 ## Architecture
 
 ```
-┌──────────────┐  HTTP/JSON   ┌──────────────┐  Prisma   ┌────────────────┐
-│  React + TS  │ ───────────► │  Express +   │ ────────► │  Postgres on   │
-│  Vite :5173  │ ◄─────────── │  Prisma :4000│ ◄──────── │  Supabase      │
-└──────────────┘              └──────────────┘           └────────────────┘
+┌──────────────┐  HTTP/JSON   ┌──────────────────┐  Prisma   ┌────────────────┐
+│  React + TS  │ ───────────► │  Express + Prisma │ ────────► │  Postgres on   │
+│  Vite :5173  │ ◄─────────── │  :4000            │ ◄──────── │  Supabase      │
+└──────────────┘              │                    │           └────────────────┘
+                              │  node-cron         │
+                              │  ┌──────────────┐  │
+                              │  │ 7 AM EST     │  │
+                              │  │ Gmail scan   │  │
+                              │  │ Outlook scan │  │
+                              │  │ Claude API   │  │
+                              │  │ classify     │  │
+                              │  └──────────────┘  │
+                              └────────────────────┘
 ```
 
-| Layer    | Tech                                                                 |
-| -------- | -------------------------------------------------------------------- |
-| Frontend | React 18 + TS + Vite + Tailwind + Zustand + @dnd-kit                 |
-| Backend  | Node.js + Express + Zod                                              |
-| DB / ORM | PostgreSQL on Supabase (free tier, pooled) + Prisma 5                |
-| Auth     | Dev-mode middleware (constant `dev-user-1`) — Clerk swap point ready |
-| Email AI | Claude API (Week 5)                                                  |
-| Hosting  | Vercel (web) + Railway (api) + Supabase (db) — planned               |
+| Layer | Tech |
+| --- | --- |
+| Frontend | React 18 + TS + Vite + Tailwind + Zustand + @dnd-kit |
+| Backend | Node.js + Express + TypeScript |
+| DB / ORM | PostgreSQL on Supabase + Prisma |
+| Auth | Clerk (dev-mode middleware currently; Clerk integration planned) |
+| Email Automation | `node-cron` + Claude API (`claude-sonnet-4-20250514`) for classification |
+| Email Integration | Gmail + Outlook OAuth (both connected simultaneously) |
+| Hosting | Vercel (frontend) + Railway (server) + Supabase (DB) — planned |
 
-## Setup
+## How It Works
 
-**Prerequisites:** Node 20+, a free Supabase project.
-
-```bash
-# 1. Install everything
-npm install
-npm --prefix server install
-
-# 2. Configure environment
-cp .env.example .env                # frontend (VITE_API_URL)
-cp server/.env.example server/.env  # backend  (paste your Supabase DATABASE_URL + DIRECT_URL)
-
-# 3. Migrate + seed the database
-cd server
-npx prisma migrate deploy
-npm run seed
-cd ..
-
-# 4. Run both frontend and backend
-npm run dev
-```
-
-Visit **http://localhost:5173**. You should see 6 seeded applications loaded from Supabase.
-
-### Verifying the backend
-
-| What         | Command / URL                                                              |
-| ------------ | -------------------------------------------------------------------------- |
-| Health check | `curl http://localhost:4000/health`                                        |
-| List apps    | `curl http://localhost:4000/api/applications`                              |
-| Analytics    | `curl http://localhost:4000/api/analytics/summary`                         |
-| In the UI    | Drag a card → reload the page → status persists (Week 1 lost it on reload) |
-| In Supabase  | Dashboard → Table Editor → `applications`                                  |
-
-If the frontend shows a red banner ("API error: ..."), the backend isn't reachable — check the `[api]` stream in your `npm run dev` terminal.
-
-## Scripts
-
-### Root (frontend + orchestration)
-
-| Command           | Purpose                                              |
-| ----------------- | ---------------------------------------------------- |
-| `npm run dev`     | Start frontend + backend together via `concurrently` |
-| `npm run dev:web` | Frontend only (Vite, port 5173)                      |
-| `npm run dev:api` | Backend only (proxies to `server/`, port 4000)       |
-| `npm run build`   | Production frontend build                            |
-| `npm run lint`    | TypeScript typecheck                                 |
-
-### `server/`
-
-| Command                  | Purpose                                          |
-| ------------------------ | ------------------------------------------------ |
-| `npm run dev`            | Express in watch mode via `tsx`                  |
-| `npm run build`          | Compile TS → `dist/`                             |
-| `npm run seed`           | Seed dev user + 6 mock applications (idempotent) |
-| `npm run prisma:migrate` | Create + apply a new migration                   |
-| `npm run prisma:studio`  | Browse the DB visually                           |
-
-## Project structure
+### Application Pipeline
 
 ```
-Joblog/
-├── package.json              Frontend deps + root dev orchestration
-├── .env                      VITE_API_URL (gitignored)
-├── vite.config.ts
-├── tailwind.config.js
-├── src/                      ── FRONTEND ──
-│   ├── App.tsx               Page shell, mounts loadApplications()
-│   ├── main.tsx              React root
-│   ├── types.ts              Application, status enum, stale thresholds (PRD §4.1/4.2/4.5)
-│   ├── lib/
-│   │   ├── api.ts            Typed fetch client + ApiError
-│   │   └── utils.ts          daysSince, isStale, statusAccent
-│   ├── store/
-│   │   └── applicationStore.ts  Zustand store — async actions, optimistic updates with rollback
-│   └── components/
-│       ├── KanbanBoard.tsx       DnD context + columns
-│       ├── KanbanColumn.tsx      Droppable column
-│       ├── ApplicationCard.tsx   Sortable card
-│       ├── ApplicationDialog.tsx Create/edit form (PRD §4.1 fields)
-│       └── SummaryBar.tsx        Top metrics
-│
-└── server/                   ── BACKEND ──
-    ├── package.json
-    ├── .env                  Supabase URLs + dev user (gitignored)
-    ├── prisma/
-    │   ├── schema.prisma     Models per PRD §6.2
-    │   ├── seed.ts           Idempotent seed
-    │   └── migrations/       Versioned SQL
-    └── src/
-        ├── index.ts          Express entry — CORS, JSON, /health, route mounting, error handler
-        ├── db.ts             Prisma singleton
-        ├── auth.ts           Dev auth middleware (TODO: clerk swap)
-        ├── lib/mappers.ts    Prisma row → API DTO
-        └── routes/
-            ├── applications.ts  POST/GET/GET:id/PATCH/DELETE — auto-appends StatusHistory on status change
-            ├── analytics.ts     /summary, /over-time
-            ├── nudges.ts        GET, PATCH /:id/dismiss
-            └── internal.ts      Stubs for poll-gmail/poll-outlook/check-nudges (Weeks 3–7)
+SAVED → APPLIED → ACKNOWLEDGED → SCREENING → INTERVIEW → FINAL_ROUND → OFFER → ACCEPTED
+                                                                            ↘ REJECTED (any stage)
+                                                                            ↘ WITHDRAWN (any stage)
+                                                                            ↘ GHOSTED (manual)
 ```
 
-## Data flow on a card move
+### Email Automation Flow
+
+1. A `node-cron` job inside the Express server triggers daily at **7:00 AM EST**
+2. Fetches unread emails from Gmail + Outlook via the `emailScanner` service
+3. Matches sender domains against tracked companies (by contact email, job URL domain, or fuzzy company name)
+4. Classifies each email using `claude-sonnet-4-20250514` into: `ACKNOWLEDGEMENT`, `SCREENING_REQUEST`, `INTERVIEW_INVITE`, `REJECTION`, `OFFER`, or `UNCLEAR`
+5. If confidence ≥ 0.75 → auto-advances the application stage (≥ 0.85 required for `REJECTED`)
+6. Below-threshold or `UNCLEAR` emails → flagged for manual review as Nudge records
+
+All automated transitions are reversible — logged to `StatusHistory` with an undo toast (10s).
+
+### Data Flow on a Card Move
 
 ```
 drag in browser
@@ -146,37 +78,128 @@ drag in browser
 
 The frontend is **never** the source of truth — Supabase is. Reloading the page always reflects what's in the database.
 
-## Where to make changes
+## Setup
 
-| You want to...                                  | Edit                                                                        |
-| ----------------------------------------------- | --------------------------------------------------------------------------- |
-| Change schema                                   | `server/prisma/schema.prisma` → `npx prisma migrate dev --name your_change` |
-| Add a new endpoint                              | New file in `server/src/routes/` → mount in `server/src/index.ts`           |
-| Add a new API call from the frontend            | Method in `src/lib/api.ts` → call from `src/store/applicationStore.ts`      |
-| Add new UI                                      | Component in `src/components/` → wire to store                              |
-| Change stage colors / labels / stale thresholds | `src/types.ts` and `src/lib/utils.ts`                                       |
-| Swap dev auth for real Clerk                    | `server/src/auth.ts` (search for `TODO: clerk`)                             |
+**Prerequisites:** Node 20+, a free Supabase project.
 
-## Multi-tenancy from day one
+```bash
+# 1. Install everything
+npm install
+npm --prefix server install
+
+# 2. Configure environment
+cp .env.example .env                # frontend (VITE_API_URL)
+cp server/.env.example server/.env  # backend  (DATABASE_URL, DIRECT_URL, OAuth keys, etc.)
+
+# 3. Migrate + seed the database
+cd server
+npx prisma migrate deploy
+npm run seed
+cd ..
+
+# 4. Run both frontend and backend
+npm run dev
+```
+
+Visit **http://localhost:5173**. You should see 6 seeded applications loaded from Supabase.
+
+### Verifying the Backend
+
+| What | Command / URL |
+| --- | --- |
+| Health check | `curl http://localhost:4000/health` |
+| List apps | `curl http://localhost:4000/api/applications` |
+| Analytics | `curl http://localhost:4000/api/analytics/summary` |
+| Connection status | `curl http://localhost:4000/api/auth/connections` |
+| Trigger scan | `curl -X POST http://localhost:4000/api/internal/scan-emails -H 'x-cron-secret: <secret>' -H 'Content-Type: application/json' -d '{"userId":"dev-user-1"}'` |
+| In the UI | Drag a card → reload the page → status persists |
+| In Supabase | Dashboard → Table Editor → `applications` |
+
+If the frontend shows a red banner ("API error: ..."), the backend isn't reachable — check the `[api]` stream in your `npm run dev` terminal.
+
+## Scripts
+
+### Root (frontend + orchestration)
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start frontend + backend together via `concurrently` |
+| `npm run dev:web` | Frontend only (Vite, port 5173) |
+| `npm run dev:api` | Backend only (proxies to `server/`, port 4000) |
+| `npm run build` | Production frontend build |
+| `npm run lint` | TypeScript typecheck |
+
+### `server/`
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Express in watch mode via `tsx` |
+| `npm run build` | Compile TS → `dist/` |
+| `npm run seed` | Seed dev user + 6 mock applications (idempotent) |
+| `npm run prisma:migrate` | Create + apply a new migration |
+| `npm run prisma:studio` | Browse the DB visually |
+
+## Project Structure
+
+```
+joblog/
+├── src/                             # React 18 + Vite frontend
+│   ├── components/                  # KanbanBoard, KanbanColumn, ApplicationCard,
+│   │                                # ApplicationDialog, SettingsPanel, SummaryBar
+│   ├── store/                       # Zustand store (applicationStore.ts)
+│   ├── lib/                         # API client (api.ts), utils (utils.ts)
+│   └── types.ts                     # Application, StatusHistoryEntry, status/source types
+├── server/                          # Express REST API
+│   ├── src/
+│   │   ├── routes/                  # applications, oauth, analytics, nudges, internal
+│   │   ├── services/                # gmail, outlook, emailClassifier, emailScanner
+│   │   ├── lib/                     # constants, types, crypto, emailUtils, mappers
+│   │   ├── auth.ts                  # Auth middleware (dev-mode)
+│   │   ├── db.ts                    # Prisma client singleton
+│   │   └── index.ts                 # Express app entry point + node-cron scheduler
+│   ├── prisma/
+│   │   ├── schema.prisma            # User, Application, StatusHistory, Nudge
+│   │   └── migrations/
+│   └── tsconfig.json
+├── package.json                     # Root orchestration (concurrently)
+├── vite.config.ts
+└── tailwind.config.js
+```
+
+## Where to Make Changes
+
+| You want to... | Edit |
+| --- | --- |
+| Change schema | `server/prisma/schema.prisma` → `npx prisma migrate dev --name your_change` |
+| Add a new endpoint | New file in `server/src/routes/` → mount in `server/src/index.ts` |
+| Add a new API call from the frontend | Method in `src/lib/api.ts` → call from `src/store/applicationStore.ts` |
+| Add new UI | Component in `src/components/` → wire to store |
+| Change stage colors / labels / stale thresholds | `src/types.ts` and `src/lib/utils.ts` |
+| Swap dev auth for real Clerk | `server/src/auth.ts` (search for `TODO: clerk`) |
+| Add a new application stage | See CLAUDE.md "Common Tasks" section |
+
+## Multi-tenancy From Day One
 
 Every `/api/*` route runs through `authMiddleware`, which sets `req.userId`. Every Prisma query inside a route handler is scoped with `where: { userId: req.userId }`. Today that user is always `dev-user-1`; when Clerk lands, the only change is `req.userId` will come from a verified JWT instead of a constant. No data model changes needed.
 
 ## Roadmap
 
-| Week | Deliverable                                           | Status |
-| ---- | ----------------------------------------------------- | ------ |
-| 1    | React + Vite scaffold, kanban UI, CRUD, drag-and-drop | ✅     |
-| 2    | Express API, Supabase + Prisma, real persistence      | ✅     |
-| 3    | Gmail OAuth, inbox polling, keyword classifier        | ⏳     |
-| 4    | Outlook OAuth + Microsoft Graph polling               |        |
-| 5    | Claude API classifier, auto-advance, undo toast       |        |
-| 6    | Browser extension (LinkedIn + Greenhouse)             |        |
-| 7    | Follow-up nudge cron + in-app display                 |        |
-| 8    | Analytics dashboard (funnel, response by source)      |        |
-| 9    | Polish: PWA, error handling, README                   |        |
+| Week | Deliverable | Status |
+| --- | --- | --- |
+| 1 | React + Vite scaffold, kanban UI, CRUD, drag-and-drop | ✅ |
+| 2 | Express API, Supabase + Prisma, real persistence | ✅ |
+| 3 | Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel | ✅ |
+| 4 | End-to-end scan testing, undo toast, review queue UI | |
+| 5 | Chrome extension (Save + Applied buttons, JD auto-scrape) | |
+| 6 | Full-text JD search | |
+| 7 | Nudge system (node-cron job + in-app display) | |
+| 8 | Analytics dashboard UI | |
+| 9 | Clerk auth integration, polish, loading states, error handling | |
 
 ## Notes
 
 - **Free Supabase pauses after 7 days idle.** If the backend logs `Can't reach database server`, unpause the project from the dashboard.
 - The Supabase free tier exposes both DB URLs through Supavisor. `:6543` (`DATABASE_URL`, transaction mode, used by Prisma at runtime) needs `?pgbouncer=true`. `:5432` (`DIRECT_URL`, session mode, used by migrations) does not.
-- Auth is intentionally a stub. Wiring Clerk is a Week 2.5 task: replace `server/src/auth.ts` with JWT verification, wrap `<App>` in `<ClerkProvider>`, send the token as a `Bearer` header from `src/lib/api.ts`. Existing `dev-user-1` data stays put.
+- Auth is intentionally a stub. Wiring Clerk is a Week 9 task: replace `server/src/auth.ts` with JWT verification, wrap `<App>` in `<ClerkProvider>`, send the token as a `Bearer` header from `src/lib/api.ts`. Existing `dev-user-1` data stays put.
+- OAuth tokens are encrypted at rest using AES-256-GCM (`server/src/lib/crypto.ts`). Email body content is never persisted — transient use during classification only.
+- Internal cron routes (`/api/internal/*`) are protected by `x-cron-secret` header validation and are never exposed to the frontend client.

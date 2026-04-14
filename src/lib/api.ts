@@ -65,3 +65,21 @@ export const applicationsApi = {
   remove: (id: string) =>
     request<void>(`/api/applications/${id}`, { method: 'DELETE' }),
 };
+
+// ---------------------------------------------------------------------------
+// Auth / connection status
+// ---------------------------------------------------------------------------
+
+export interface ConnectionStatus {
+  gmail: { connected: boolean; lastPolledAt: string | null };
+  outlook: { connected: boolean; lastPolledAt: string | null };
+}
+
+export const authApi = {
+  getConnections: () =>
+    request<ConnectionStatus>('/api/auth/connections'),
+  disconnectGmail: () =>
+    request<{ disconnected: boolean }>('/api/auth/gmail', { method: 'DELETE' }),
+  disconnectOutlook: () =>
+    request<{ disconnected: boolean }>('/api/auth/outlook', { method: 'DELETE' }),
+};
