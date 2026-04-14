@@ -1,32 +1,34 @@
 # Joblog
 
-An AI-powered job application tracker. Personal CRM for high-volume job search — Kanban pipeline, automated stage detection from email (Gmail + Outlook via Botpress), follow-up nudges, and analytics.
+An AI-powered job application tracker. Personal CRM for high-volume job search — Kanban pipeline, automated stage detection from email (Gmail + Outlook), follow-up nudges, and analytics.
 
 **Target user:** Technical job seekers running 20+ concurrent applications who use Gmail or Outlook.
 
 ## Status
 
-**Week 3 in progress — Gmail + Outlook OAuth, Botpress bot setup, email fetching, internal API routes.**
+**Week 3 complete — Gmail + Outlook OAuth, email services, Claude classifier, cron scanner, settings panel.**
 
 - [x] **Week 1** — Vite + React + TS + Tailwind scaffold, kanban with drag-and-drop, CRUD dialog, stale-card highlighting, summary bar
 - [x] **Week 2** — Express + Prisma backend, Postgres on Supabase, REST API, dev-mode auth middleware (Clerk swap-point ready), frontend wired to API with optimistic updates
-- [ ] **Week 3** — Gmail + Outlook OAuth flows, Botpress bot setup, email fetching, internal API routes
+- [x] **Week 3** — Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel
 - [ ] Weeks 4–9 — see [roadmap](#roadmap) below
 
 ## Architecture
 
 ```
-┌──────────────┐  HTTP/JSON   ┌──────────────┐  Prisma   ┌────────────────┐
-│  React + TS  │ ───────────► │  Express +   │ ────────► │  Postgres on   │
-│  Vite :5173  │ ◄─────────── │  Prisma :4000│ ◄──────── │  Supabase      │
-└──────────────┘              └──────┬───────┘           └────────────────┘
-                                     │ internal API
-                              ┌──────┴───────┐
-                              │  Botpress    │  daily 7 AM EST
-                              │  Agent       │  gmail + outlook scan
-                              │  (claude-    │  ──► auto-classify
-                              │   sonnet)    │  ──► update stages
-                              └──────────────┘
+┌──────────────┐  HTTP/JSON   ┌──────────────────┐  Prisma   ┌────────────────┐
+│  React + TS  │ ───────────► │  Express + Prisma │ ────────► │  Postgres on   │
+│  Vite :5173  │ ◄─────────── │  :4000            │ ◄──────── │  Supabase      │
+└──────────────┘              │                    │           └────────────────┘
+                              │  node-cron         │
+                              │  ┌──────────────┐  │
+                              │  │ 7 AM EST     │  │
+                              │  │ Gmail scan   │  │
+                              │  │ Outlook scan │  │
+                              │  │ Claude API   │  │
+                              │  │ classify     │  │
+                              │  └──────────────┘  │
+                              └────────────────────┘
 ```
 
 | Layer | Tech |
@@ -35,7 +37,7 @@ An AI-powered job application tracker. Personal CRM for high-volume job search �
 | Backend | Node.js + Express + TypeScript |
 | DB / ORM | PostgreSQL on Supabase + Prisma |
 | Auth | Clerk (dev-mode middleware currently; Clerk integration planned) |
-| Email Automation | Botpress autonomous agent using `claude-sonnet-4-20250514` for classification |
+| Email Automation | `node-cron` + Claude API (`claude-sonnet-4-20250514`) for classification |
 | Email Integration | Gmail + Outlook OAuth (both connected simultaneously) |
 | Hosting | Vercel (frontend) + Railway (server) + Supabase (DB) — planned |
 
@@ -52,12 +54,12 @@ SAVED → APPLIED → ACKNOWLEDGED → SCREENING → INTERVIEW → FINAL_ROUND �
 
 ### Email Automation Flow
 
-1. A Botpress autonomous agent triggers daily at **7:00 AM EST**
-2. Fetches unread emails from both Gmail + Outlook via the server's internal API
-3. Matches sender domains against tracked companies
+1. A `node-cron` job inside the Express server triggers daily at **7:00 AM EST**
+2. Fetches unread emails from Gmail + Outlook via the `emailScanner` service
+3. Matches sender domains against tracked companies (by contact email, job URL domain, or fuzzy company name)
 4. Classifies each email using `claude-sonnet-4-20250514` into: `ACKNOWLEDGEMENT`, `SCREENING_REQUEST`, `INTERVIEW_INVITE`, `REJECTION`, `OFFER`, or `UNCLEAR`
 5. If confidence ≥ 0.75 → auto-advances the application stage (≥ 0.85 required for `REJECTED`)
-6. Below-threshold or `UNCLEAR` emails → flagged for manual review
+6. Below-threshold or `UNCLEAR` emails → flagged for manual review as Nudge records
 
 All automated transitions are reversible — logged to `StatusHistory` with an undo toast (10s).
 
@@ -108,6 +110,8 @@ Visit **http://localhost:5173**. You should see 6 seeded applications loaded fro
 | Health check | `curl http://localhost:4000/health` |
 | List apps | `curl http://localhost:4000/api/applications` |
 | Analytics | `curl http://localhost:4000/api/analytics/summary` |
+| Connection status | `curl http://localhost:4000/api/auth/connections` |
+| Trigger scan | `curl -X POST http://localhost:4000/api/internal/scan-emails -H 'x-cron-secret: <secret>' -H 'Content-Type: application/json' -d '{"userId":"dev-user-1"}'` |
 | In the UI | Drag a card → reload the page → status persists |
 | In Supabase | Dashboard → Table Editor → `applications` |
 
@@ -141,33 +145,22 @@ If the frontend shows a red banner ("API error: ..."), the backend isn't reachab
 joblog/
 ├── src/                             # React 18 + Vite frontend
 │   ├── components/                  # KanbanBoard, KanbanColumn, ApplicationCard,
-│   │                                # ApplicationDialog, SummaryBar
+│   │                                # ApplicationDialog, SettingsPanel, SummaryBar
 │   ├── store/                       # Zustand store (applicationStore.ts)
 │   ├── lib/                         # API client (api.ts), utils (utils.ts)
 │   └── types.ts                     # Application, StatusHistoryEntry, status/source types
 ├── server/                          # Express REST API
 │   ├── src/
-│   │   ├── routes/                  # applications, analytics, nudges, internal
-│   │   ├── services/                # emailFetcher, gmail, outlook (Week 3)
+│   │   ├── routes/                  # applications, oauth, analytics, nudges, internal
+│   │   ├── services/                # gmail, outlook, emailClassifier, emailScanner
 │   │   ├── lib/                     # constants, types, crypto, emailUtils, mappers
 │   │   ├── auth.ts                  # Auth middleware (dev-mode)
 │   │   ├── db.ts                    # Prisma client singleton
-│   │   └── index.ts                 # Express app entry point
+│   │   └── index.ts                 # Express app entry point + node-cron scheduler
 │   ├── prisma/
 │   │   ├── schema.prisma            # User, Application, StatusHistory, Nudge
 │   │   └── migrations/
 │   └── tsconfig.json
-├── botpress/                        # Botpress autonomous email scanning agent (Week 3–4)
-│   ├── src/
-│   │   ├── workflows/
-│   │   │   └── scanEmails.ts        # Daily 7 AM EST workflow
-│   │   └── actions/
-│   │       ├── fetchEmails.ts       # POST /api/internal/fetch-emails
-│   │       ├── getApplications.ts   # GET /api/internal/applications
-│   │       ├── updateStatus.ts      # POST /api/internal/update-status
-│   │       └── flagForReview.ts     # POST /api/internal/flag-review
-│   ├── agent.config.ts
-│   └── agent.json
 ├── package.json                     # Root orchestration (concurrently)
 ├── vite.config.ts
 └── tailwind.config.js
@@ -195,11 +188,11 @@ Every `/api/*` route runs through `authMiddleware`, which sets `req.userId`. Eve
 | --- | --- | --- |
 | 1 | React + Vite scaffold, kanban UI, CRUD, drag-and-drop | ✅ |
 | 2 | Express API, Supabase + Prisma, real persistence | ✅ |
-| 3 | Gmail + Outlook OAuth flows, Botpress bot setup, email fetching, internal API routes | 🚧 |
-| 4 | Botpress daily inbox scan end-to-end, auto stage advance, undo toast | |
+| 3 | Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel | ✅ |
+| 4 | End-to-end scan testing, undo toast, review queue UI | |
 | 5 | Chrome extension (Save + Applied buttons, JD auto-scrape) | |
 | 6 | Full-text JD search | |
-| 7 | Nudge system (Botpress scheduled workflow + in-app display) | |
+| 7 | Nudge system (node-cron job + in-app display) | |
 | 8 | Analytics dashboard UI | |
 | 9 | Clerk auth integration, polish, loading states, error handling | |
 
