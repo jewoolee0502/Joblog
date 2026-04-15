@@ -81,7 +81,26 @@ export const KANBAN_COLUMNS: ApplicationStatus[] = [
   'INTERVIEW',
   'FINAL_ROUND',
   'OFFER',
+  'ACCEPTED',
+  'REJECTED',
+  'WITHDRAWN',
+  'GHOSTED',
 ];
+
+export interface Nudge {
+  id: string;
+  applicationId: string;
+  nudgeType: string;
+  message: string;
+  isDismissed: boolean;
+  createdAt: string;
+  application: {
+    id: string;
+    companyName: string;
+    roleTitle: string;
+    status: string;
+  };
+}
 
 // Stale thresholds in days (PRD §4.5)
 export const STALE_THRESHOLDS: Partial<Record<ApplicationStatus, number>> = {

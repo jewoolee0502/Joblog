@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { CLASSIFICATION_CATEGORIES } from '../lib/constants.js';
 import type { ClassificationCategory } from '../lib/constants.js';
-import type { NormalizedEmail, ClassificationResult } from '../lib/types.js';
+import type { NormalizedEmail, ClassificationResult, TriageResult } from '../lib/types.js';
 
 const client = new Anthropic();
 
@@ -104,4 +104,95 @@ Classify this email.`,
 
 function fallback(reason: string): ClassificationResult {
   return { category: 'UNCLEAR', confidence: 0, reason };
+}
+
+/**
+ * Triage an unmatched email: determine if it's job-related and extract company/role.
+ */
+export async function triageEmail(email: NormalizedEmail): Promise<TriageResult> {
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 256,
+      system: `You are a job application email triage system. Given an email, determine if it is related to a job application (e.g., application confirmation, interview invite, rejection, offer, screening request, OA invite). Marketing emails, newsletters, and unrelated emails are NOT job-related.
+
+If it IS job-related, extract the company name and role title if possible, and classify it.`,
+      tools: [
+        {
+          name: 'triage_email',
+          description: 'Submit the triage result for an email.',
+          input_schema: {
+            type: 'object' as const,
+            properties: {
+              is_job_related: {
+                type: 'boolean',
+                description: 'Whether this email is related to a job application.',
+              },
+              category: {
+                type: 'string',
+                enum: [...CLASSIFICATION_CATEGORIES],
+                description: 'Classification category (if job-related).',
+              },
+              confidence: {
+                type: 'number',
+                minimum: 0,
+                maximum: 1,
+                description: 'Confidence score.',
+              },
+              reason: {
+                type: 'string',
+                description: 'One-sentence explanation.',
+              },
+              company_name: {
+                type: 'string',
+                description: 'Company name extracted from the email (null if unknown).',
+              },
+              role_title: {
+                type: 'string',
+                description: 'Role/job title extracted from the email (null if unknown).',
+              },
+            },
+            required: ['is_job_related', 'category', 'confidence', 'reason'],
+          },
+        },
+      ],
+      tool_choice: { type: 'tool', name: 'triage_email' },
+      messages: [
+        {
+          role: 'user',
+          content: `Email from: ${email.from}
+Subject: ${email.subject}
+Body snippet: ${email.bodySnippet}
+
+Is this email related to a job application? If so, classify it and extract the company name and role title.`,
+        },
+      ],
+    });
+
+    const toolBlock = response.content.find((block) => block.type === 'tool_use');
+    if (!toolBlock || toolBlock.type !== 'tool_use') {
+      return { isJobRelated: false, category: 'UNCLEAR', confidence: 0, reason: 'No tool response', companyName: null, roleTitle: null };
+    }
+
+    const input = toolBlock.input as {
+      is_job_related?: boolean;
+      category?: string;
+      confidence?: number;
+      reason?: string;
+      company_name?: string;
+      role_title?: string;
+    };
+
+    return {
+      isJobRelated: input.is_job_related ?? false,
+      category: (CLASSIFICATION_CATEGORIES.includes(input.category as any) ? input.category : 'UNCLEAR') as ClassificationCategory,
+      confidence: Math.max(0, Math.min(1, input.confidence ?? 0)),
+      reason: input.reason ?? '',
+      companyName: input.company_name || null,
+      roleTitle: input.role_title || null,
+    };
+  } catch (err) {
+    console.error('[classifier] Triage API error:', err);
+    return { isJobRelated: false, category: 'UNCLEAR', confidence: 0, reason: 'API error', companyName: null, roleTitle: null };
+  }
 }

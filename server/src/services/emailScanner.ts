@@ -13,7 +13,7 @@ import {
 import type { NormalizedEmail, ScanResult } from '../lib/types.js';
 import { fetchGmailEmails } from './gmail.js';
 import { fetchOutlookEmails } from './outlook.js';
-import { classifyEmail } from './emailClassifier.js';
+import { classifyEmail, triageEmail } from './emailClassifier.js';
 
 interface ApplicationMatch {
   id: string;
@@ -22,44 +22,52 @@ interface ApplicationMatch {
 }
 
 /**
+ * Get the previous calendar day window (00:00–23:59 EST).
+ */
+function getYesterdayWindow(): Date {
+  const now = new Date();
+  // Use EST/EDT-aware date by working in America/New_York
+  const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const yesterday = new Date(estNow);
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0, 0, 0, 0);
+  return yesterday;
+}
+
+/**
  * Run a full email scan for a user: fetch from Gmail + Outlook,
  * match to tracked applications, classify, and update statuses.
+ * Unmatched job-related emails create new application cards.
  */
-export async function runEmailScan(userId: string): Promise<ScanResult> {
+export async function runEmailScan(userId: string, sinceOverride?: Date): Promise<ScanResult> {
   const result: ScanResult = {
     emailsScanned: 0,
     matched: 0,
     statusUpdates: 0,
+    newApplications: 0,
     flaggedForReview: 0,
     errors: [],
   };
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
-  // 1. Fetch active applications and build domain lookup
+  // 1. Fetch ALL applications (including terminal) for domain matching
   const applications = await prisma.application.findMany({
-    where: {
-      userId,
-      status: { notIn: TERMINAL_STATUSES },
-    },
+    where: { userId },
   });
-
-  if (applications.length === 0) {
-    console.log('[scanner] No active applications for user', userId);
-    return result;
-  }
 
   const domainMap = buildDomainLookup(applications);
 
-  // 2. Determine scan window — use last polled time or default to 24h ago
-  const defaultSince = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  // 2. Determine scan window — sinceOverride > lastPolled > previous calendar day
+  const defaultSince = getYesterdayWindow();
 
-  // 3. Fetch emails from connected providers
+  // 3. Fetch emails from connected providers (all emails, read and unread)
   const allEmails: NormalizedEmail[] = [];
 
   if (user.gmailRefreshToken) {
     try {
-      const gmailSince = user.gmailLastPolledAt ?? defaultSince;
+      const gmailSince = sinceOverride ?? user.gmailLastPolledAt ?? defaultSince;
+      console.log(`[scanner] Gmail scanning since ${gmailSince.toISOString()}`);
       const gmailEmails = await fetchGmailEmails(userId, gmailSince);
       allEmails.push(...gmailEmails);
     } catch (err) {
@@ -71,7 +79,8 @@ export async function runEmailScan(userId: string): Promise<ScanResult> {
 
   if (user.outlookRefreshToken) {
     try {
-      const outlookSince = user.outlookLastPolledAt ?? defaultSince;
+      const outlookSince = sinceOverride ?? user.outlookLastPolledAt ?? defaultSince;
+      console.log(`[scanner] Outlook scanning since ${outlookSince.toISOString()}`);
       const outlookEmails = await fetchOutlookEmails(userId, outlookSince);
       allEmails.push(...outlookEmails);
     } catch (err) {
@@ -88,61 +97,112 @@ export async function runEmailScan(userId: string): Promise<ScanResult> {
     return result;
   }
 
-  // 4. Match emails to applications and classify
+  // 4. Process each email
   for (const email of allEmails) {
     const app = matchEmailToApplication(email, domainMap);
-    if (!app) continue;
 
-    result.matched++;
+    if (app) {
+      // === MATCHED to existing application ===
+      result.matched++;
 
-    try {
-      const classification = await classifyEmail(email, app.companyName);
+      // Skip terminal applications — don't re-classify
+      if (TERMINAL_STATUSES.includes(app.status as any)) continue;
 
-      const targetStatus = CLASSIFICATION_TO_STATUS[classification.category];
+      try {
+        const classification = await classifyEmail(email, app.companyName);
+        const targetStatus = CLASSIFICATION_TO_STATUS[classification.category];
 
-      // Determine if we should auto-advance
-      const threshold =
-        classification.category === 'REJECTION'
-          ? CONFIDENCE_THRESHOLDS.REJECTED
-          : CONFIDENCE_THRESHOLDS.default;
+        const threshold =
+          classification.category === 'REJECTION'
+            ? CONFIDENCE_THRESHOLDS.REJECTED
+            : CONFIDENCE_THRESHOLDS.default;
 
-      const meetsThreshold = classification.confidence >= threshold;
-      const isValidTarget =
-        targetStatus && isForwardTransition(app.status, targetStatus);
+        const meetsThreshold = classification.confidence >= threshold;
+        const isValidTarget =
+          targetStatus && isForwardTransition(app.status, targetStatus);
 
-      if (meetsThreshold && isValidTarget) {
-        // Auto-advance the application
-        await prisma.$transaction([
-          prisma.application.update({
-            where: { id: app.id },
-            data: { status: targetStatus, lastUpdatedAt: new Date() },
-          }),
-          prisma.statusHistory.create({
+        if (meetsThreshold && isValidTarget) {
+          await prisma.$transaction([
+            prisma.application.update({
+              where: { id: app.id },
+              data: { status: targetStatus, lastUpdatedAt: new Date() },
+            }),
+            prisma.statusHistory.create({
+              data: {
+                applicationId: app.id,
+                fromStatus: app.status,
+                toStatus: targetStatus,
+                trigger: 'email_auto',
+                triggerDetail: `${classification.category} (${classification.confidence.toFixed(2)}): ${email.subject}`,
+              },
+            }),
+          ]);
+          result.statusUpdates++;
+        } else if (classification.category !== 'UNCLEAR' || classification.confidence > 0) {
+          await prisma.nudge.create({
             data: {
               applicationId: app.id,
-              fromStatus: app.status,
-              toStatus: targetStatus,
-              trigger: 'email_auto',
-              triggerDetail: `${classification.category} (${classification.confidence.toFixed(2)}): ${email.subject}`,
+              nudgeType: 'email_review',
+              message: `Email from ${email.from}: "${email.subject}" — classified as ${classification.category} (${classification.confidence.toFixed(2)}). ${classification.reason}`,
             },
-          }),
-        ]);
-        result.statusUpdates++;
-      } else if (classification.category !== 'UNCLEAR' || classification.confidence > 0) {
-        // Flag for manual review
-        await prisma.nudge.create({
+          });
+          result.flaggedForReview++;
+        }
+      } catch (err) {
+        const msg = `Classification error for ${email.messageId}: ${err instanceof Error ? err.message : String(err)}`;
+        console.error('[scanner]', msg);
+        result.errors.push(msg);
+      }
+    } else {
+      // === UNMATCHED — triage to see if it's job-related ===
+      try {
+        const triage = await triageEmail(email);
+
+        if (!triage.isJobRelated) continue;
+        if (!triage.companyName) continue;
+
+        const targetStatus = CLASSIFICATION_TO_STATUS[triage.category] ?? 'APPLIED';
+
+        // Create a new application card
+        const newApp = await prisma.application.create({
           data: {
-            applicationId: app.id,
-            nudgeType: 'email_review',
-            message: `Email from ${email.from}: "${email.subject}" — classified as ${classification.category} (${classification.confidence.toFixed(2)}). ${classification.reason}`,
+            userId,
+            companyName: triage.companyName,
+            roleTitle: triage.roleTitle ?? 'Unknown Role',
+            status: targetStatus,
+            source: 'other',
+            contactEmail: email.from,
+            history: {
+              create: {
+                fromStatus: null,
+                toStatus: targetStatus,
+                trigger: 'email_auto',
+                triggerDetail: `Auto-created from email: "${email.subject}" — ${triage.category} (${triage.confidence.toFixed(2)})`,
+              },
+            },
           },
         });
-        result.flaggedForReview++;
+
+        console.log(`[scanner] Created new application for ${triage.companyName} (${newApp.id})`);
+        result.newApplications++;
+
+        // Add to domain map so subsequent emails from the same company match
+        const newMatch: ApplicationMatch = {
+          id: newApp.id,
+          companyName: triage.companyName,
+          status: targetStatus,
+        };
+        const domain = extractDomain(email.from);
+        if (domain) {
+          const existing = domainMap.get(domain) ?? [];
+          existing.push(newMatch);
+          domainMap.set(domain, existing);
+        }
+      } catch (err) {
+        const msg = `Triage error for ${email.messageId}: ${err instanceof Error ? err.message : String(err)}`;
+        console.error('[scanner]', msg);
+        result.errors.push(msg);
       }
-    } catch (err) {
-      const msg = `Classification error for ${email.messageId}: ${err instanceof Error ? err.message : String(err)}`;
-      console.error('[scanner]', msg);
-      result.errors.push(msg);
     }
   }
 

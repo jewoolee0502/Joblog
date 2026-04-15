@@ -80,7 +80,7 @@ export async function fetchOutlookEmails(
   });
 
   const sinceIso = since.toISOString();
-  const filter = `receivedDateTime ge ${sinceIso} and isRead eq false`;
+  const filter = `receivedDateTime ge ${sinceIso}`;
 
   try {
     const response = await graphClient

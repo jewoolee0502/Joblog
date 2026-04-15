@@ -101,7 +101,7 @@ router.delete('/gmail', async (req, res, next) => {
       data: { gmailRefreshToken: null, gmailLastPolledAt: null },
     });
 
-    res.json({ data: { disconnected: true } });
+    res.json({ disconnected: true });
   } catch (err) {
     next(err);
   }
@@ -164,7 +164,7 @@ router.delete('/outlook', async (req, res, next) => {
       data: { outlookRefreshToken: null, outlookLastPolledAt: null },
     });
 
-    res.json({ data: { disconnected: true } });
+    res.json({ disconnected: true });
   } catch (err) {
     next(err);
   }
@@ -179,17 +179,37 @@ router.get('/connections', async (req, res, next) => {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId } });
 
     res.json({
-      data: {
-        gmail: {
-          connected: user.gmailRefreshToken !== null,
-          lastPolledAt: user.gmailLastPolledAt?.toISOString() ?? null,
-        },
-        outlook: {
-          connected: user.outlookRefreshToken !== null,
-          lastPolledAt: user.outlookLastPolledAt?.toISOString() ?? null,
-        },
+      gmail: {
+        connected: user.gmailRefreshToken !== null,
+        lastPolledAt: user.gmailLastPolledAt?.toISOString() ?? null,
+      },
+      outlook: {
+        connected: user.outlookRefreshToken !== null,
+        lastPolledAt: user.outlookLastPolledAt?.toISOString() ?? null,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Manual scan trigger
+// ---------------------------------------------------------------------------
+
+router.post('/trigger-scan', async (req, res, next) => {
+  try {
+    const { runEmailScan } = await import('../services/emailScanner.js');
+    // Optional: pass sinceMonths to scan further back (e.g., ?months=6)
+    const months = parseInt(req.query.months as string) || 0;
+    let sinceOverride: Date | undefined;
+    if (months > 0) {
+      sinceOverride = new Date();
+      sinceOverride.setMonth(sinceOverride.getMonth() - months);
+      sinceOverride.setHours(0, 0, 0, 0);
+    }
+    const result = await runEmailScan(req.userId, sinceOverride);
+    res.json(result);
   } catch (err) {
     next(err);
   }

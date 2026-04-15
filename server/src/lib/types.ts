@@ -18,11 +18,22 @@ export interface ClassificationResult {
   reason: string;
 }
 
+/** Result from triaging an unmatched email — is it job-related? */
+export interface TriageResult {
+  isJobRelated: boolean;
+  category: ClassificationCategory;
+  confidence: number;
+  reason: string;
+  companyName: string | null;
+  roleTitle: string | null;
+}
+
 /** Summary returned after a full email scan. */
 export interface ScanResult {
   emailsScanned: number;
   matched: number;
   statusUpdates: number;
+  newApplications: number;
   flaggedForReview: number;
   errors: string[];
 }

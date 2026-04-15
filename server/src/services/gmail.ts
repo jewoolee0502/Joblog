@@ -33,24 +33,36 @@ export async function fetchGmailEmails(
   oauth2Client.setCredentials({ refresh_token: refreshToken });
   const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-  // Gmail query: unread, after a given date
+  // Gmail query: all emails after a given date (read and unread)
   const afterDate = formatGmailDate(since);
-  const query = `is:unread after:${afterDate}`;
+  const query = `after:${afterDate}`;
 
   try {
-    const listRes = await gmail.users.messages.list({
-      userId: 'me',
-      q: query,
-      maxResults: 100,
-    });
+    // Paginate through all matching messages
+    let pageToken: string | undefined;
+    const allMessageIds: Array<{ id: string }> = [];
 
-    const messageIds = listRes.data.messages ?? [];
-    if (messageIds.length === 0) return [];
+    do {
+      const listRes = await gmail.users.messages.list({
+        userId: 'me',
+        q: query,
+        maxResults: 500,
+        pageToken,
+      });
+
+      const messages = listRes.data.messages ?? [];
+      for (const m of messages) {
+        if (m.id) allMessageIds.push({ id: m.id });
+      }
+      pageToken = listRes.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    if (allMessageIds.length === 0) return [];
+    console.log(`[gmail] Found ${allMessageIds.length} messages to process`);
 
     const emails: NormalizedEmail[] = [];
 
-    for (const { id } of messageIds) {
-      if (!id) continue;
+    for (const { id } of allMessageIds) {
       try {
         const msg = await gmail.users.messages.get({
           userId: 'me',

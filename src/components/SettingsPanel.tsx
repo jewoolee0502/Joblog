@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { authApi, type ConnectionStatus } from '@/lib/api';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
@@ -11,6 +12,7 @@ interface SettingsPanelProps {
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [connections, setConnections] = useState<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,6 +25,26 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [open]);
+
+  const handleScan = async (months?: number) => {
+    setScanning(true);
+    try {
+      const result = await authApi.triggerScan(months);
+      const parts = [
+        `${result.emailsScanned} emails scanned`,
+        result.statusUpdates > 0 ? `${result.statusUpdates} status updates` : null,
+        result.newApplications > 0 ? `${result.newApplications} new applications` : null,
+        result.flaggedForReview > 0 ? `${result.flaggedForReview} flagged for review` : null,
+      ].filter(Boolean);
+      toast.success(`Scan complete: ${parts.join(', ')}`);
+      const updated = await authApi.getConnections();
+      setConnections(updated);
+    } catch (err: any) {
+      toast.error(`Scan failed: ${err.message}`);
+    } finally {
+      setScanning(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -88,7 +110,38 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             </div>
           )}
 
-          <div className="mt-8 rounded-md bg-slate-50 px-4 py-3">
+          {connections && (connections.gmail.connected || connections.outlook.connected) && (
+            <div className="mt-8">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+                Inbox Scanning
+              </h3>
+
+              <div className="rounded-lg border border-slate-200 p-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleScan()}
+                    disabled={scanning}
+                    className="flex-1 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {scanning ? 'Scanning...' : 'Scan Now'}
+                  </button>
+                  <button
+                    onClick={() => handleScan(3)}
+                    disabled={scanning}
+                    className="flex-1 rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {scanning ? 'Scanning...' : 'Deep Scan'}
+                  </button>
+                </div>
+                <div className="mt-3 space-y-1 text-xs text-slate-400">
+                  <p><strong className="text-slate-500">Scan Now</strong> — checks since last scan or yesterday</p>
+                  <p><strong className="text-slate-500">Deep Scan</strong> — processes the past 3 months (may take several minutes)</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 rounded-md bg-slate-50 px-4 py-3">
             <p className="text-xs text-slate-500">
               Joblog scans your connected inboxes daily at 7:00 AM Eastern for job-related emails
               and automatically updates your application statuses.
