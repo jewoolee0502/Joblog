@@ -12,6 +12,7 @@ export interface ApplicationDTO {
   lastUpdatedAt: string;
   contactName?: string;
   contactEmail?: string;
+  emailUrl?: string;
   notes?: string;
   tags: string[];
   salaryRange?: string;
@@ -45,8 +46,9 @@ export function toApplicationDTO(
     lastUpdatedAt: app.lastUpdatedAt.toISOString(),
     contactName: app.contactName ?? undefined,
     contactEmail: app.contactEmail ?? undefined,
+    emailUrl: app.emailUrl ?? undefined,
     notes: app.notes ?? undefined,
-    tags: app.tags,
+    tags: app.tags ?? [],
     salaryRange: app.salaryRange ?? undefined,
     location: app.location ?? undefined,
     isRemote: app.isRemote,

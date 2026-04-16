@@ -8,7 +8,6 @@ const router = Router();
 const STATUSES = [
   'SAVED',
   'APPLIED',
-  'ACKNOWLEDGED',
   'SCREENING',
   'INTERVIEW',
   'FINAL_ROUND',

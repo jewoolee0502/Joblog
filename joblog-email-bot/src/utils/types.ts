@@ -37,6 +37,7 @@ export interface ScanResult {
 export interface ApplicationMatch {
   id: string;
   companyName: string;
+  roleTitle: string;
   status: string;
 }
 

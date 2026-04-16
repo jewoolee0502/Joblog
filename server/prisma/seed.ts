@@ -101,7 +101,7 @@ async function main() {
     {
       companyName: 'Figma',
       roleTitle: 'Frontend Engineer',
-      status: 'ACKNOWLEDGED',
+      status: 'APPLIED',
       source: 'linkedin',
       appliedAt: daysAgo(6),
       tags: ['NYC', 'SWE'],
@@ -111,7 +111,7 @@ async function main() {
         { fromStatus: null, toStatus: 'APPLIED', trigger: 'manual', changedAt: daysAgo(6) },
         {
           fromStatus: 'APPLIED',
-          toStatus: 'ACKNOWLEDGED',
+          toStatus: 'APPLIED',
           trigger: 'email_auto',
           triggerDetail: 'Auto-reply received',
           changedAt: daysAgo(5),

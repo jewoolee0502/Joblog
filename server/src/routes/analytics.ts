@@ -4,7 +4,6 @@ import { prisma } from '../db.js';
 const router = Router();
 
 const RESPONDED_STATUSES = [
-  'ACKNOWLEDGED',
   'SCREENING',
   'INTERVIEW',
   'FINAL_ROUND',

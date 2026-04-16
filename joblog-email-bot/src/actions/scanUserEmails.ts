@@ -7,7 +7,7 @@ import {
   CLASSIFICATION_CATEGORIES,
 } from '../utils/constants';
 import { extractDomain, isForwardTransition } from '../utils/emailUtils';
-import { buildDomainLookup, matchEmailToApplication } from '../utils/domainMatcher';
+import { buildDomainLookup, matchEmailToApplications, fuzzyMatchRoleTitle } from '../utils/domainMatcher';
 import { fetchGmailEmails } from '../utils/gmailFetcher';
 import { fetchOutlookEmails } from '../utils/outlookFetcher';
 import type { NormalizedEmail, ApplicationRow, ApplicationMatch, ScanResult } from '../utils/types';
@@ -40,7 +40,17 @@ NOT job-related (mark is_job_related = false):
 - Product updates, surveys, account notifications
 - Recruiter outreach that is NOT about a specific application
 
-Return a JSON object with: is_job_related (boolean), category, confidence (0.0-1.0), reason, company_name (or null), role_title (or null).`;
+Return a JSON object with:
+- is_job_related (boolean)
+- category (ACKNOWLEDGEMENT, SCREENING_REQUEST, INTERVIEW_INVITE, REJECTION, OFFER, or UNCLEAR)
+- confidence (0.0-1.0)
+- reason (one sentence)
+- company_name (string or null)
+- role_title (exact role title from the email, or null)
+- location (city/region mentioned in the email, e.g. "Montreal, QC" or "Remote", or null)
+- contact_name (recruiter/hiring manager name if mentioned, or null)
+- job_description (brief 1-2 sentence summary of the role/position from the email content, or null)
+- is_remote (boolean, true if remote work is mentioned)`;
 
 async function callLLM(client: any, systemPrompt: string, userMessage: string): Promise<Record<string, unknown>> {
   const response = await client.callAction({
@@ -96,15 +106,42 @@ Classify this email. Return JSON with: category, confidence, reason.`;
   };
 }
 
-async function triageEmailWithClient(
+async function extractRoleTitleFromEmail(
   client: any,
   email: NormalizedEmail,
-): Promise<{ isJobRelated: boolean; category: ClassificationCategory; confidence: number; reason: string; companyName: string | null; roleTitle: string | null }> {
+): Promise<string | null> {
   const userMessage = `Email from: ${email.from}
 Subject: ${email.subject}
 Body snippet: ${email.bodySnippet}
 
-Is this email a status update about a job application? Return JSON with: is_job_related, category, confidence, reason, company_name, role_title.`;
+Extract the job role/position title mentioned in this email. Return JSON with: role_title (string or null).`;
+
+  const result = await callLLM(client, 'Extract the exact job role/position title from this email. Return JSON with role_title (string or null if not found).', userMessage);
+  return (result.role_title as string) || null;
+}
+
+interface TriageResultExtended {
+  isJobRelated: boolean;
+  category: ClassificationCategory;
+  confidence: number;
+  reason: string;
+  companyName: string | null;
+  roleTitle: string | null;
+  location: string | null;
+  contactName: string | null;
+  jobDescription: string | null;
+  isRemote: boolean;
+}
+
+async function triageEmailWithClient(
+  client: any,
+  email: NormalizedEmail,
+): Promise<TriageResultExtended> {
+  const userMessage = `Email from: ${email.from}
+Subject: ${email.subject}
+Body snippet: ${email.bodySnippet}
+
+Is this email a status update about a job application? Return JSON with: is_job_related, category, confidence, reason, company_name, role_title, location (city/region or null), contact_name (recruiter name or null), job_description (brief summary of the role from the email or null), is_remote (boolean).`;
 
   const result = await callLLM(client, TRIAGE_SYSTEM_PROMPT, userMessage);
 
@@ -115,7 +152,92 @@ Is this email a status update about a job application? Return JSON with: is_job_
     reason: (result.reason as string) ?? '',
     companyName: (result.company_name as string) || null,
     roleTitle: (result.role_title as string) || null,
+    location: (result.location as string) || null,
+    contactName: (result.contact_name as string) || null,
+    jobDescription: (result.job_description as string) || null,
+    isRemote: (result.is_remote as boolean) ?? false,
   };
+}
+
+/** Construct a direct URL to the email in the user's inbox. */
+function buildEmailUrl(email: NormalizedEmail): string {
+  if (email.provider === 'gmail') {
+    return `https://mail.google.com/mail/u/0/#inbox/${email.messageId}`;
+  }
+  // Outlook web — messageId is the Graph API ID, link to outlook.live.com
+  return `https://outlook.live.com/mail/0/inbox/id/${encodeURIComponent(email.messageId)}`;
+}
+
+/**
+ * Quick pre-filter to skip emails that are obviously not job application status updates.
+ * Returns true if the email should be SKIPPED (not sent to LLM).
+ */
+function isObviouslyNotJobRelated(email: NormalizedEmail): boolean {
+  const domain = email.fromDomain.toLowerCase();
+  const subject = email.subject.toLowerCase();
+  const from = email.from.toLowerCase();
+
+  // Skip domains that are NEVER job-related (pure consumer/personal services only).
+  // DO NOT add companies you might apply to (tech, airlines, banks, etc.)
+  // — those are filtered by subject patterns instead.
+  const skipDomains = [
+    // Social / messaging
+    'discord.com', 'quora.com', 'reddit.com', 'tiktok.com', 'instagram.com', 'facebook.com',
+    // Shopping / fashion (unlikely employers)
+    'grailed.com', 'musinsa.com', 'brownsshoes.com', 'sunglasshut.com', 'floraqueen.com',
+    // Personal finance / payments
+    'interac.ca', 'tossbank.com', 'tossinvest.com',
+    // Utilities / bills
+    'hydro.qc.ca', 'communauto.com', 'communauto.ca', 'buildingstack.com', 'artm.quebec',
+    // Tourism / attractions
+    'sagradafamilia.org', 'bsmsa.cat', 'covermanager.com', 'lapedrera.com',
+    'holafly.com', 'tremblant.ca',
+    // News / newsletters (pure content, never hiring platforms)
+    'substack.com',
+    // Government (immigration/auth, not job)
+    'auth.canada.ca', 'saaq.gouv.qc.ca', 'authentification.quebec.ca',
+    'revenuquebec.ca', 'cra-arc.gc.ca', 'francais-enligne.quebec',
+    'mifi.notification.gouv.qc.ca',
+    // Real estate
+    'showmojo.com', 'kw.com',
+    // Misc personal
+    'luma-mail.com', 'splitwise.com', 'livefootballtickets.com', 'chess.com',
+  ];
+
+  if (skipDomains.some((d) => domain === d || domain.endsWith('.' + d))) {
+    return true;
+  }
+
+  // Skip LinkedIn job alerts and news, but KEEP application status updates
+  if (domain.includes('linkedin.com')) {
+    // Always keep emails about applications (rejections, updates, etc.)
+    if (subject.includes('your application') || subject.includes('application to')) {
+      return false;
+    }
+    // Skip alerts, news, editors, newsletters
+    if (from.includes('jobalerts') || from.includes('editors') ||
+        from.includes('newsletters') || from.includes('jobs-noreply') ||
+        from.includes('linkedin@em.linkedin.com')) {
+      return true;
+    }
+  }
+
+  // Skip obvious marketing/promo subject patterns
+  const skipSubjectPatterns = [
+    /% off/i, /promo/i, /expires soon/i, /price drop/i,
+    /weekly digest/i, /newsletter/i, /top picks/i,
+    /what's happening in/i, /your .* statement/i,
+    /receipt from/i, /your bill/i, /invoice/i, /payment/i,
+    /security alert/i, /sign-in/i, /new device login/i,
+    /verify your email/i, /password/i,
+    /mentioned you in/i, /sent you a message/i,
+  ];
+
+  if (skipSubjectPatterns.some((p) => p.test(subject))) {
+    return true;
+  }
+
+  return false;
 }
 
 function getYesterdayWindow(): Date {
@@ -130,7 +252,10 @@ function getYesterdayWindow(): Date {
 export const scanUserEmails = new Action({
   name: 'scanUserEmails',
   description: 'Fetch, classify, and update emails for a single user',
-  input: z.object({ userId: z.string() }),
+  input: z.object({
+    userId: z.string(),
+    sinceOverride: z.string().optional().describe('ISO date string to scan from (for deep scans). Defaults to yesterday 00:00 EST.'),
+  }),
   output: z.object({
     emailsScanned: z.number(),
     matched: z.number(),
@@ -152,7 +277,7 @@ export const scanUserEmails = new Action({
     );
 
     const domainMap = buildDomainLookup(applications);
-    const since = getYesterdayWindow();
+    const since = input.sinceOverride ? new Date(input.sinceOverride) : getYesterdayWindow();
 
     const allEmails: NormalizedEmail[] = [];
 
@@ -172,19 +297,64 @@ export const scanUserEmails = new Action({
       result.errors.push(msg);
     }
 
+    // Deduplicate by messageId (Gmail can return duplicates across labels)
+    const seen = new Set<string>();
+    const deduped = allEmails.filter((e) => {
+      if (seen.has(e.messageId)) return false;
+      seen.add(e.messageId);
+      return true;
+    });
+    const dupeCount = allEmails.length - deduped.length;
+    if (dupeCount > 0) console.log(`[scanner] Removed ${dupeCount} duplicate messages`);
+    allEmails.length = 0;
+    allEmails.push(...deduped);
+
     result.emailsScanned = allEmails.length;
     if (allEmails.length === 0) return result;
 
-    console.log(`[scanner] Found ${allEmails.length} emails for user ${input.userId}:`);
+    const preFiltered = allEmails.filter((e) => matchEmailToApplications(e, domainMap).length === 0 && isObviouslyNotJobRelated(e)).length;
+    console.log(`[scanner] Found ${allEmails.length} emails for user ${input.userId} (${preFiltered} pre-filtered, ${allEmails.length - preFiltered} to process)`);
     for (const e of allEmails) {
-      console.log(`  [${e.provider}] From: ${e.from} | Subject: ${e.subject}`);
+      const skip = matchEmailToApplications(e, domainMap).length === 0 && isObviouslyNotJobRelated(e);
+      console.log(`  [${e.provider}]${skip ? ' [SKIP]' : ''} From: ${e.from} | Subject: ${e.subject}`);
     }
 
     for (const email of allEmails) {
-      const app = matchEmailToApplication(email, domainMap);
+      const candidates = matchEmailToApplications(email, domainMap);
 
-      if (app) {
+      if (candidates.length > 0) {
         result.matched++;
+
+        // Resolve which application to update
+        let app: ApplicationMatch | null = null;
+
+        if (candidates.length === 1) {
+          app = candidates[0];
+        } else {
+          // Multiple applications for the same company — use LLM to extract role title
+          try {
+            const emailRole = await extractRoleTitleFromEmail(client, email);
+            if (emailRole) {
+              app = candidates.find((c) => fuzzyMatchRoleTitle(emailRole, c.roleTitle)) ?? null;
+            }
+            if (!app) {
+              // Can't determine which application — create nudge on the first non-terminal one
+              const activeCandidate = candidates.find((c) => !TERMINAL_STATUSES.includes(c.status as any));
+              if (activeCandidate) {
+                await query(
+                  'INSERT INTO nudges (id, application_id, nudge_type, message) VALUES (gen_random_uuid(), $1, $2, $3)',
+                  [activeCandidate.id, 'email_review', `Email from ${email.from}: "${email.subject}" — multiple applications found for ${activeCandidate.companyName}. Please assign manually.`],
+                );
+                result.flaggedForReview++;
+              }
+              continue;
+            }
+          } catch (err) {
+            console.error(`[scanner] Role extraction failed for ${email.messageId}:`, err);
+            continue;
+          }
+        }
+
         if (TERMINAL_STATUSES.includes(app.status as any)) continue;
 
         try {
@@ -221,17 +391,48 @@ export const scanUserEmails = new Action({
           result.errors.push(msg);
         }
       } else {
-        // Unmatched — triage
+        // Unmatched — quick pre-filter before expensive LLM triage
+        if (isObviouslyNotJobRelated(email)) {
+          continue; // Skip — no LLM call needed
+        }
+
+        // Triage via LLM
         try {
           const triage = await triageEmailWithClient(client, email);
 
           if (!triage.isJobRelated || !triage.companyName) continue;
 
+          // Skip if an application for this company + role already exists
+          const roleTitle = triage.roleTitle ?? 'Unknown Role';
+          const existing = await query<{ id: string }>(
+            'SELECT id FROM applications WHERE user_id = $1 AND LOWER(company_name) = LOWER($2) AND LOWER(role_title) = LOWER($3) LIMIT 1',
+            [input.userId, triage.companyName, roleTitle],
+          );
+          if (existing.length > 0) {
+            console.log(`[scanner] Skipping duplicate: ${triage.companyName} — ${roleTitle} (already exists)`);
+            continue;
+          }
+
           const targetStatus = CLASSIFICATION_TO_STATUS[triage.category] ?? 'APPLIED';
 
+          const emailUrl = buildEmailUrl(email);
+
           const newApps = await query<{ id: string }>(
-            'INSERT INTO applications (id, user_id, company_name, role_title, status, source, contact_email) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6) RETURNING id',
-            [input.userId, triage.companyName, triage.roleTitle ?? 'Unknown Role', targetStatus, 'other', email.from],
+            `INSERT INTO applications (id, user_id, company_name, role_title, status, source, contact_email, email_url, location, contact_name, jd_snapshot, is_remote)
+             VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+            [
+              input.userId,
+              triage.companyName,
+              triage.roleTitle ?? 'Unknown Role',
+              targetStatus,
+              'other',
+              email.from,
+              emailUrl,
+              triage.location,
+              triage.contactName,
+              triage.jobDescription,
+              triage.isRemote,
+            ],
           );
 
           if (newApps[0]) {
@@ -241,7 +442,7 @@ export const scanUserEmails = new Action({
             );
 
             const newMatch: ApplicationMatch = {
-              id: newApps[0].id, companyName: triage.companyName, status: targetStatus,
+              id: newApps[0].id, companyName: triage.companyName, roleTitle: triage.roleTitle ?? 'Unknown Role', status: targetStatus,
             };
             const domain = extractDomain(email.from);
             if (domain) {

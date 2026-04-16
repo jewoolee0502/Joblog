@@ -2,7 +2,6 @@
 export const STAGE_ORDER = [
   'SAVED',
   'APPLIED',
-  'ACKNOWLEDGED',
   'SCREENING',
   'INTERVIEW',
   'FINAL_ROUND',
@@ -37,7 +36,7 @@ export type ClassificationCategory = (typeof CLASSIFICATION_CATEGORIES)[number];
 
 /** Maps a classification category to the target application status. */
 export const CLASSIFICATION_TO_STATUS: Record<string, ApplicationStatus> = {
-  ACKNOWLEDGEMENT: 'ACKNOWLEDGED',
+  ACKNOWLEDGEMENT: 'APPLIED',
   SCREENING_REQUEST: 'SCREENING',
   INTERVIEW_INVITE: 'INTERVIEW',
   REJECTION: 'REJECTED',

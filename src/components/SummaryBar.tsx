@@ -4,7 +4,7 @@ export function SummaryBar() {
   const apps = useApplicationStore((s) => s.applications);
   const total = apps.length;
   const responded = apps.filter((a) =>
-    ['ACKNOWLEDGED', 'SCREENING', 'INTERVIEW', 'FINAL_ROUND', 'OFFER', 'ACCEPTED', 'REJECTED'].includes(a.status),
+    ['SCREENING', 'INTERVIEW', 'FINAL_ROUND', 'OFFER', 'ACCEPTED', 'REJECTED'].includes(a.status),
   ).length;
   const interviews = apps.filter((a) =>
     ['INTERVIEW', 'FINAL_ROUND', 'OFFER', 'ACCEPTED'].includes(a.status),

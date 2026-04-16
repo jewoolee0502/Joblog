@@ -9,8 +9,10 @@ import {
   extractRootDomain,
   normalizeCompanyName,
   isForwardTransition,
+  fuzzyMatchRoleTitle,
 } from '../lib/emailUtils.js';
 import type { NormalizedEmail, ScanResult } from '../lib/types.js';
+import { isObviouslyNotJobRelated } from '../lib/emailUtils.js';
 import { fetchGmailEmails } from './gmail.js';
 import { fetchOutlookEmails } from './outlook.js';
 import { classifyEmail, triageEmail } from './emailClassifier.js';
@@ -18,6 +20,7 @@ import { classifyEmail, triageEmail } from './emailClassifier.js';
 interface ApplicationMatch {
   id: string;
   companyName: string;
+  roleTitle: string;
   status: string;
 }
 
@@ -95,6 +98,20 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
     return result;
   }
 
+  // Deduplicate by messageId
+  const seen = new Set<string>();
+  const deduped = allEmails.filter((e) => {
+    if (seen.has(e.messageId)) return false;
+    seen.add(e.messageId);
+    return true;
+  });
+  if (deduped.length < allEmails.length) {
+    console.log(`[scanner] Removed ${allEmails.length - deduped.length} duplicate messages`);
+    allEmails.length = 0;
+    allEmails.push(...deduped);
+    result.emailsScanned = allEmails.length;
+  }
+
   console.log(`[scanner] Found ${allEmails.length} emails for user ${userId}:`);
   for (const e of allEmails) {
     console.log(`  [${e.provider}] From: ${e.from} | Subject: ${e.subject}`);
@@ -102,11 +119,43 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
 
   // 4. Process each email
   for (const email of allEmails) {
-    const app = matchEmailToApplication(email, domainMap);
+    const candidates = matchEmailToApplications(email, domainMap);
 
-    if (app) {
-      // === MATCHED to existing application ===
+    if (candidates.length > 0) {
+      // === MATCHED to existing application(s) ===
       result.matched++;
+
+      // Resolve which application to update
+      let app: ApplicationMatch | null = null;
+
+      if (candidates.length === 1) {
+        app = candidates[0];
+      } else {
+        // Multiple applications for same company — use LLM to extract role title
+        try {
+          const triage = await triageEmail(email);
+          if (triage.roleTitle) {
+            app = candidates.find((c) => fuzzyMatchRoleTitle(triage.roleTitle!, c.roleTitle)) ?? null;
+          }
+          if (!app) {
+            const activeCandidate = candidates.find((c) => !TERMINAL_STATUSES.includes(c.status as any));
+            if (activeCandidate) {
+              await prisma.nudge.create({
+                data: {
+                  applicationId: activeCandidate.id,
+                  nudgeType: 'email_review',
+                  message: `Email from ${email.from}: "${email.subject}" — multiple applications found for ${activeCandidate.companyName}. Please assign manually.`,
+                },
+              });
+              result.flaggedForReview++;
+            }
+            continue;
+          }
+        } catch (err) {
+          console.error(`[scanner] Role extraction failed for ${email.messageId}:`, err);
+          continue;
+        }
+      }
 
       // Skip terminal applications — don't re-classify
       if (TERMINAL_STATUSES.includes(app.status as any)) continue;
@@ -157,14 +206,36 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
         result.errors.push(msg);
       }
     } else {
-      // === UNMATCHED — triage to see if it's job-related ===
+      // === UNMATCHED — quick pre-filter before expensive LLM triage ===
+      if (isObviouslyNotJobRelated(email)) continue;
+
       try {
         const triage = await triageEmail(email);
 
         if (!triage.isJobRelated) continue;
         if (!triage.companyName) continue;
 
+        // Skip if an application for this company + role already exists
+        const roleTitle = triage.roleTitle ?? 'Unknown Role';
+        const existingApp = await prisma.application.findFirst({
+          where: {
+            userId,
+            companyName: { equals: triage.companyName, mode: 'insensitive' },
+            roleTitle: { equals: roleTitle, mode: 'insensitive' },
+          },
+          select: { id: true },
+        });
+        if (existingApp) {
+          console.log(`[scanner] Skipping duplicate: ${triage.companyName} — ${roleTitle} (already exists)`);
+          continue;
+        }
+
         const targetStatus = CLASSIFICATION_TO_STATUS[triage.category] ?? 'APPLIED';
+
+        // Build direct email URL
+        const emailUrl = email.provider === 'gmail'
+          ? `https://mail.google.com/mail/u/0/#inbox/${email.messageId}`
+          : `https://outlook.live.com/mail/0/inbox/id/${encodeURIComponent(email.messageId)}`;
 
         // Create a new application card
         const newApp = await prisma.application.create({
@@ -175,6 +246,7 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
             status: targetStatus,
             source: 'other',
             contactEmail: email.from,
+            emailUrl,
             history: {
               create: {
                 fromStatus: null,
@@ -193,6 +265,7 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
         const newMatch: ApplicationMatch = {
           id: newApp.id,
           companyName: triage.companyName,
+          roleTitle: triage.roleTitle ?? 'Unknown Role',
           status: targetStatus,
         };
         const domain = extractDomain(email.from);
@@ -221,6 +294,7 @@ function buildDomainLookup(
   applications: Array<{
     id: string;
     companyName: string;
+    roleTitle: string;
     status: string;
     contactEmail: string | null;
     jobUrl: string | null;
@@ -232,6 +306,7 @@ function buildDomainLookup(
     const match: ApplicationMatch = {
       id: app.id,
       companyName: app.companyName,
+      roleTitle: app.roleTitle,
       status: app.status,
     };
 
@@ -264,38 +339,31 @@ function buildDomainLookup(
 }
 
 /**
- * Try to match an email to a tracked application using the domain lookup.
+ * Find all matching applications for an email using the domain lookup.
  */
-function matchEmailToApplication(
+function matchEmailToApplications(
   email: NormalizedEmail,
   domainMap: Map<string, ApplicationMatch[]>,
-): ApplicationMatch | null {
-  // Try exact domain match first
+): ApplicationMatch[] {
   const exactMatch = domainMap.get(email.fromDomain);
-  if (exactMatch && exactMatch.length > 0) {
-    return exactMatch[0];
-  }
+  if (exactMatch && exactMatch.length > 0) return exactMatch;
 
-  // Try root domain (strip subdomains from sender)
   const rootDomain = email.fromDomain.replace(
     /^(mail|noreply|notifications|careers|hr|talent|recruiting)\./,
     '',
   );
   if (rootDomain !== email.fromDomain) {
     const rootMatch = domainMap.get(rootDomain);
-    if (rootMatch && rootMatch.length > 0) {
-      return rootMatch[0];
-    }
+    if (rootMatch && rootMatch.length > 0) return rootMatch;
   }
 
-  // Fuzzy match: check if sender domain contains a tracked company name
   for (const [key, apps] of domainMap) {
     if (!key.startsWith('__company__')) continue;
     const companySlug = key.replace('__company__', '');
     if (companySlug.length >= 3 && email.fromDomain.includes(companySlug)) {
-      return apps[0];
+      return apps;
     }
   }
 
-  return null;
+  return [];
 }

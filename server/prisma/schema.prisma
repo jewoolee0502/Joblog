@@ -38,6 +38,7 @@ model Application {
   lastUpdatedAt  DateTime         @default(now()) @updatedAt @map("last_updated_at") @db.Timestamptz
   contactName    String?          @map("contact_name")
   contactEmail   String?          @map("contact_email")
+  emailUrl       String?          @map("email_url")
   notes          String?
   tags           String[]         @default([])
   salaryRange    String?          @map("salary_range")

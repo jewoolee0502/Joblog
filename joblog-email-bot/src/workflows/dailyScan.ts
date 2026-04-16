@@ -9,7 +9,10 @@ export const DailyScan = new Workflow({
   schedule: '0 12 * * *',
   timeout: '2h',
 
-  input: z.object({}),
+  input: z.object({
+    userId: z.string().optional().describe('Scan a specific user. If empty, scans all users with tokens.'),
+    sinceOverride: z.string().optional().describe('ISO date to scan from. For deep scans (e.g., past 3 months).'),
+  }),
 
   state: z.object({
     usersScanned: z.number().default(0),
@@ -27,8 +30,11 @@ export const DailyScan = new Workflow({
     totalErrors: z.number(),
   }),
 
-  async handler({ state, step }) {
+  async handler({ input, state, step }) {
     const users = await step('get-users', async () => {
+      if (input.userId) {
+        return [{ id: input.userId }];
+      }
       const rows = await query<{ id: string }>(
         'SELECT id FROM users WHERE gmail_refresh_token IS NOT NULL OR outlook_refresh_token IS NOT NULL',
       );
@@ -43,7 +49,10 @@ export const DailyScan = new Workflow({
     for (const user of users) {
       const result = await step(`scan-${user.id}`, async () => {
         try {
-          return await actions.scanUserEmails({ userId: user.id });
+          return await actions.scanUserEmails({
+            userId: user.id,
+            sinceOverride: input.sinceOverride,
+          });
         } catch (err) {
           console.error(`[dailyScan] Failed for user ${user.id}:`, err);
           return {

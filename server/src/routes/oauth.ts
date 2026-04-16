@@ -199,17 +199,67 @@ router.get('/connections', async (req, res, next) => {
 
 router.post('/trigger-scan', async (req, res, next) => {
   try {
-    const { runEmailScan } = await import('../services/emailScanner.js');
-    // Optional: pass sinceMonths to scan further back (e.g., ?months=6)
+    const { Client } = await import('@botpress/client');
+    const bpClient = new Client({
+      botId: process.env.BOTPRESS_BOT_ID!,
+      token: process.env.BOTPRESS_TOKEN!,
+    });
+
+    // Compute sinceOverride for deep scans
     const months = parseInt(req.query.months as string) || 0;
-    let sinceOverride: Date | undefined;
+    let sinceOverride: string | undefined;
     if (months > 0) {
-      sinceOverride = new Date();
-      sinceOverride.setMonth(sinceOverride.getMonth() - months);
-      sinceOverride.setHours(0, 0, 0, 0);
+      const since = new Date();
+      since.setMonth(since.getMonth() - months);
+      since.setHours(0, 0, 0, 0);
+      sinceOverride = since.toISOString();
     }
-    const result = await runEmailScan(req.userId, sinceOverride);
-    res.json(result);
+
+    // Trigger the bot's dailyScan workflow with the current user
+    const { workflow } = await bpClient.createWorkflow({
+      name: 'dailyScan',
+      status: 'pending',
+      input: {
+        userId: req.userId,
+        sinceOverride,
+      },
+    });
+
+    // Poll for workflow completion (timeout after 120s)
+    const startTime = Date.now();
+    const TIMEOUT = 120_000;
+    let status = workflow.status;
+    let output = workflow.output;
+
+    while ((status === 'in_progress' || status === 'pending') && Date.now() - startTime < TIMEOUT) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const { workflow: updated } = await bpClient.getWorkflow({ id: workflow.id });
+      status = updated.status;
+      output = updated.output;
+    }
+
+    if (status === 'completed' && output) {
+      res.json({
+        emailsScanned: output.totalEmailsScanned ?? 0,
+        matched: 0,
+        statusUpdates: output.totalStatusUpdates ?? 0,
+        newApplications: output.totalNewApplications ?? 0,
+        flaggedForReview: 0,
+        errors: [],
+      });
+    } else if (status === 'failed') {
+      res.status(500).json({ error: { code: 'SCAN_FAILED', message: 'Bot workflow failed' } });
+    } else {
+      // Timed out but scan is still running
+      res.json({
+        emailsScanned: 0,
+        matched: 0,
+        statusUpdates: 0,
+        newApplications: 0,
+        flaggedForReview: 0,
+        errors: ['Scan is still running in the background. Check back shortly.'],
+      });
+    }
   } catch (err) {
     next(err);
   }

@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
     "@azure/msal-node": "^5.1.2",
+    "@botpress/client": "^1.40.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@prisma/client": "^5.22.0",
     "cors": "^2.8.5",
