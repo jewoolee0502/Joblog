@@ -5,15 +5,16 @@ import type { NormalizedEmail, ClassificationResult, TriageResult } from '../lib
 
 const client = new Anthropic();
 
-const SYSTEM_PROMPT = `You are a job application email classifier. Given an email and the company name the user applied to, classify the email into exactly one of these categories:
+const SYSTEM_PROMPT = `You are a job application status email classifier. Given an email from a company the user applied to, classify it into exactly one category:
 
-- ACKNOWLEDGEMENT — The company confirmed receipt of the application.
-- SCREENING_REQUEST — The company is requesting a phone screen or initial conversation.
-- INTERVIEW_INVITE — The company is inviting the candidate to an interview (technical, behavioral, etc.).
-- REJECTION — The company is rejecting the candidate.
-- OFFER — The company is extending a job offer.
-- UNCLEAR — The email is ambiguous, unrelated to the application, or you cannot determine the category.
+- ACKNOWLEDGEMENT — Company confirmed receipt of the user's job application.
+- SCREENING_REQUEST — Company requesting a phone screen, initial conversation, or online assessment for the user's application.
+- INTERVIEW_INVITE — Company inviting the user to an interview (technical, behavioral, onsite, etc.).
+- REJECTION — Company rejecting the user's application ("We've decided to move forward with other candidates").
+- OFFER — Company extending a job offer to the user.
+- UNCLEAR — The email is not about the user's application status (e.g., marketing, newsletter, general company update).
 
+Only classify as a status update if the email is specifically about the user's application. General marketing emails from the company should be classified as UNCLEAR.
 Respond with your classification, a confidence score (0.0–1.0), and a short one-sentence reason.`;
 
 /**
@@ -114,9 +115,23 @@ export async function triageEmail(email: NormalizedEmail): Promise<TriageResult>
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 256,
-      system: `You are a job application email triage system. Given an email, determine if it is related to a job application (e.g., application confirmation, interview invite, rejection, offer, screening request, OA invite). Marketing emails, newsletters, and unrelated emails are NOT job-related.
+      system: `You are a job application status email triage system. Determine if the email is a STATUS UPDATE about a job application the user has ALREADY SUBMITTED. Only these count as job-related:
 
-If it IS job-related, extract the company name and role title if possible, and classify it.`,
+- Application acknowledgement/confirmation ("We received your application")
+- Screening or phone interview request ("We'd like to schedule a call")
+- Interview invitation ("You've been selected for an interview")
+- Rejection ("We regret to inform you" / "We've decided to move forward with other candidates")
+- Job offer ("We're pleased to offer you")
+- Online assessment / coding challenge invitation
+
+The following are NOT job-related — mark as is_job_related = false:
+- Job board notifications ("New jobs posted", "Companies are hiring")
+- Marketing emails, newsletters, promotions, sales
+- Product updates, surveys, account notifications
+- General company newsletters (even from companies the user applied to)
+- Networking or recruiter outreach that is NOT about a specific application
+
+If job-related, extract the company name and role title. If NOT, set is_job_related to false.`,
       tools: [
         {
           name: 'triage_email',

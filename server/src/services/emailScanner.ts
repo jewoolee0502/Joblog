@@ -58,17 +58,16 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
 
   const domainMap = buildDomainLookup(applications);
 
-  // 2. Determine scan window — sinceOverride > lastPolled > previous calendar day
-  const defaultSince = getYesterdayWindow();
+  // 2. Determine scan window — always scan previous calendar day (sinceOverride for manual deep scans only)
+  const since = sinceOverride ?? getYesterdayWindow();
 
   // 3. Fetch emails from connected providers (all emails, read and unread)
   const allEmails: NormalizedEmail[] = [];
 
   if (user.gmailRefreshToken) {
     try {
-      const gmailSince = sinceOverride ?? user.gmailLastPolledAt ?? defaultSince;
-      console.log(`[scanner] Gmail scanning since ${gmailSince.toISOString()}`);
-      const gmailEmails = await fetchGmailEmails(userId, gmailSince);
+      console.log(`[scanner] Gmail scanning since ${since.toISOString()}`);
+      const gmailEmails = await fetchGmailEmails(userId, since);
       allEmails.push(...gmailEmails);
     } catch (err) {
       const msg = `Gmail fetch error: ${err instanceof Error ? err.message : String(err)}`;
@@ -79,9 +78,8 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
 
   if (user.outlookRefreshToken) {
     try {
-      const outlookSince = sinceOverride ?? user.outlookLastPolledAt ?? defaultSince;
-      console.log(`[scanner] Outlook scanning since ${outlookSince.toISOString()}`);
-      const outlookEmails = await fetchOutlookEmails(userId, outlookSince);
+      console.log(`[scanner] Outlook scanning since ${since.toISOString()}`);
+      const outlookEmails = await fetchOutlookEmails(userId, since);
       allEmails.push(...outlookEmails);
     } catch (err) {
       const msg = `Outlook fetch error: ${err instanceof Error ? err.message : String(err)}`;
@@ -95,6 +93,11 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
   if (allEmails.length === 0) {
     console.log('[scanner] No new emails found for user', userId);
     return result;
+  }
+
+  console.log(`[scanner] Found ${allEmails.length} emails for user ${userId}:`);
+  for (const e of allEmails) {
+    console.log(`  [${e.provider}] From: ${e.from} | Subject: ${e.subject}`);
   }
 
   // 4. Process each email

@@ -8,9 +8,11 @@ import analyticsRouter from './routes/analytics.js';
 import nudgesRouter from './routes/nudges.js';
 import internalRouter from './routes/internal.js';
 import oauthRouter from './routes/oauth.js';
-import cron from 'node-cron';
-import { prisma } from './db.js';
-import { runEmailScan } from './services/emailScanner.js';
+// Daily cron disabled — automated scanning handled by Botpress ADK bot.
+// Manual scans (Scan Now / Deep Scan) still use the internal endpoint.
+// import cron from 'node-cron';
+// import { prisma } from './db.js';
+// import { runEmailScan } from './services/emailScanner.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -46,35 +48,7 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`[joblog-server] listening on http://localhost:${PORT}`);
 
-  // Daily email scan at 7:00 AM Eastern (handles DST automatically)
-  cron.schedule(
-    '0 7 * * *',
-    async () => {
-      console.log('[cron] Starting daily email scan...');
-      try {
-        const users = await prisma.user.findMany({
-          where: {
-            OR: [
-              { gmailRefreshToken: { not: null } },
-              { outlookRefreshToken: { not: null } },
-            ],
-          },
-          select: { id: true },
-        });
-
-        for (const user of users) {
-          try {
-            const result = await runEmailScan(user.id);
-            console.log(`[cron] Scan complete for user ${user.id}:`, result);
-          } catch (err) {
-            console.error(`[cron] Scan failed for user ${user.id}:`, err);
-          }
-        }
-      } catch (err) {
-        console.error('[cron] Failed to run daily scan:', err);
-      }
-    },
-    { timezone: 'America/New_York' },
-  );
-  console.log('[cron] Daily email scan scheduled for 7:00 AM Eastern');
+  // Daily automated scan handled by Botpress ADK bot (joblog-email-bot).
+  // Manual scans still available via POST /api/internal/scan-emails.
+  console.log('[info] Daily email scan handled by Botpress ADK bot');
 });
