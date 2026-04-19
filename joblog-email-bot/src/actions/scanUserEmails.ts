@@ -12,25 +12,25 @@ import type { ApplicationMatch } from '../utils/types';
 import type { ClassificationCategory } from '../utils/constants';
 
 const CLASSIFY_SYSTEM_PROMPT = `You are a job application status email classifier. Given an email from a company the user applied to, classify it into exactly one category:
-- ACKNOWLEDGEMENT — Company confirmed receipt of the user's job application.
-- SCREENING_REQUEST — Company requesting a phone screen, initial conversation, or online assessment for the user's application.
-- INTERVIEW_INVITE — Company inviting the user to an interview (technical, behavioral, onsite, etc.).
-- REJECTION — Company rejecting the user's application.
-- OFFER — Company extending a job offer to the user.
-- UNCLEAR — The email is not about the user's application status (e.g., marketing, newsletter, general company update).
+- ACKNOWLEDGEMENT — Company confirmed receipt of the user's job application. This includes emails that say "we received your application", "thank you for applying", or "your application has been submitted". Even if the email mentions next steps or that someone will contact the user later, if the PRIMARY purpose is confirming receipt, classify as ACKNOWLEDGEMENT.
+- SCREENING_REQUEST — Company is ACTIVELY requesting the user to do something NOW: schedule a phone screen, take an online assessment, complete a coding test, or join a specific call. The email must contain a concrete action request, not just a promise of future contact.
+- INTERVIEW_INVITE — Company is specifically inviting the user to an interview with a date/time or scheduling link.
+- REJECTION — Company is rejecting the user's application ("we've decided to move forward with other candidates", "we regret to inform you").
+- OFFER — Company is extending a job offer to the user.
+- UNCLEAR — The email is not about the user's application status.
 
-Only classify as a status update if the email is specifically about the user's application. General marketing emails from the company should be classified as UNCLEAR.
+IMPORTANT: "We received your application and will contact you if successful" = ACKNOWLEDGEMENT (not SCREENING_REQUEST).
 Return a JSON object with: category, confidence (0.0-1.0), reason (one sentence).`;
 
 const TRIAGE_SYSTEM_PROMPT = `You are a job application status email triage system. Determine if the email is a STATUS UPDATE about a job application the user has ALREADY SUBMITTED.
 
 Only these count as job-related:
-- Application acknowledgement/confirmation
-- Screening or phone interview request
-- Interview invitation
+- Application acknowledgement/confirmation ("we received your application" — even if they mention future contact)
+- Screening or phone interview request (company ACTIVELY asking user to schedule/complete something NOW)
+- Interview invitation (specific date/time or scheduling link)
 - Rejection notice
 - Job offer
-- Online assessment / coding challenge invitation
+- Online assessment / coding challenge invitation (with a link or deadline to complete)
 
 NOT job-related (mark is_job_related = false):
 - Job board notifications ("New jobs posted", "Companies are hiring")
