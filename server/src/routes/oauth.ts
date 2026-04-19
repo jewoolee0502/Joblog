@@ -101,7 +101,7 @@ router.delete('/gmail', async (req, res, next) => {
       data: { gmailRefreshToken: null, gmailLastPolledAt: null },
     });
 
-    res.json({ data: { disconnected: true } });
+    res.json({ disconnected: true });
   } catch (err) {
     next(err);
   }
@@ -164,7 +164,7 @@ router.delete('/outlook', async (req, res, next) => {
       data: { outlookRefreshToken: null, outlookLastPolledAt: null },
     });
 
-    res.json({ data: { disconnected: true } });
+    res.json({ disconnected: true });
   } catch (err) {
     next(err);
   }
@@ -179,17 +179,104 @@ router.get('/connections', async (req, res, next) => {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId } });
 
     res.json({
-      data: {
-        gmail: {
-          connected: user.gmailRefreshToken !== null,
-          lastPolledAt: user.gmailLastPolledAt?.toISOString() ?? null,
-        },
-        outlook: {
-          connected: user.outlookRefreshToken !== null,
-          lastPolledAt: user.outlookLastPolledAt?.toISOString() ?? null,
-        },
+      gmail: {
+        connected: user.gmailRefreshToken !== null,
+        lastPolledAt: user.gmailLastPolledAt?.toISOString() ?? null,
+      },
+      outlook: {
+        connected: user.outlookRefreshToken !== null,
+        lastPolledAt: user.outlookLastPolledAt?.toISOString() ?? null,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Manual scan trigger
+// ---------------------------------------------------------------------------
+
+router.post('/trigger-scan', async (req, res, next) => {
+  try {
+    const { Client } = await import('@botpress/client');
+    const bpClient = new Client({
+      botId: process.env.BOTPRESS_BOT_ID!,
+      token: process.env.BOTPRESS_TOKEN!,
+    });
+
+    // Compute sinceOverride for deep scans
+    const months = parseInt(req.query.months as string) || 0;
+    let sinceOverride: string | undefined;
+    if (months > 0) {
+      const since = new Date();
+      since.setMonth(since.getMonth() - months);
+      since.setHours(0, 0, 0, 0);
+      sinceOverride = since.toISOString();
+    }
+
+    const isDeepScan = months > 0;
+    console.log(`[trigger-scan] ${isDeepScan ? 'DEEP' : 'NORMAL'} scan: months=${months}, sinceOverride=${sinceOverride ?? 'none'}, userId=${req.userId}`);
+
+    // Trigger the bot's dailyScan workflow
+    const { workflow } = await bpClient.createWorkflow({
+      name: 'dailyScan',
+      status: 'pending',
+      input: {
+        userId: req.userId,
+        sinceOverride,
+      },
+    });
+
+    // Deep scan: return immediately (runs in background)
+    if (isDeepScan) {
+      res.json({
+        emailsScanned: 0,
+        matched: 0,
+        statusUpdates: 0,
+        newApplications: 0,
+        flaggedForReview: 0,
+        errors: [],
+        background: true,
+        message: `Deep scan started (past ${months} months). It will run in the background and update your Kanban board automatically.`,
+      });
+      return;
+    }
+
+    // Normal scan: poll for completion (small scans complete in seconds)
+    const startTime = Date.now();
+    const TIMEOUT = 120_000;
+    let status = workflow.status;
+    let output = workflow.output;
+
+    while ((status === 'in_progress' || status === 'pending') && Date.now() - startTime < TIMEOUT) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const { workflow: updated } = await bpClient.getWorkflow({ id: workflow.id });
+      status = updated.status;
+      output = updated.output;
+    }
+
+    if (status === 'completed' && output) {
+      res.json({
+        emailsScanned: output.totalFetched ?? 0,
+        matched: 0,
+        statusUpdates: output.statusUpdates ?? 0,
+        newApplications: output.newApplications ?? 0,
+        flaggedForReview: output.flaggedForReview ?? 0,
+        errors: output.errors ?? [],
+      });
+    } else if (status === 'failed') {
+      res.status(500).json({ error: { code: 'SCAN_FAILED', message: 'Bot workflow failed' } });
+    } else {
+      res.json({
+        emailsScanned: 0,
+        matched: 0,
+        statusUpdates: 0,
+        newApplications: 0,
+        flaggedForReview: 0,
+        errors: ['Scan is still running in the background. Check back shortly.'],
+      });
+    }
   } catch (err) {
     next(err);
   }

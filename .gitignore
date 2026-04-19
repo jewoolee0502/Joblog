@@ -11,3 +11,6 @@ dist-ssr
 .idea
 *.log
 .claude
+.adk
+.botpress
+agent.local.json

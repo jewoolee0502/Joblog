@@ -1,4 +1,4 @@
-import type { Application, ApplicationStatus } from '@/types';
+import type { Application, ApplicationStatus, Nudge } from '@/types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
@@ -64,6 +64,18 @@ export const applicationsApi = {
     }),
   remove: (id: string) =>
     request<void>(`/api/applications/${id}`, { method: 'DELETE' }),
+  undo: (id: string) =>
+    request<Application>(`/api/applications/${id}/undo`, { method: 'POST' }),
+};
+
+// ---------------------------------------------------------------------------
+// Nudges
+// ---------------------------------------------------------------------------
+
+export const nudgesApi = {
+  list: () => request<Nudge[]>('/api/nudges'),
+  dismiss: (id: string) =>
+    request<Nudge>(`/api/nudges/${id}/dismiss`, { method: 'PATCH' }),
 };
 
 // ---------------------------------------------------------------------------
@@ -82,4 +94,9 @@ export const authApi = {
     request<{ disconnected: boolean }>('/api/auth/gmail', { method: 'DELETE' }),
   disconnectOutlook: () =>
     request<{ disconnected: boolean }>('/api/auth/outlook', { method: 'DELETE' }),
+  triggerScan: (months?: number) =>
+    request<{ emailsScanned: number; matched: number; statusUpdates: number; newApplications: number; flaggedForReview: number; errors: string[] }>(
+      `/api/auth/trigger-scan${months ? `?months=${months}` : ''}`,
+      { method: 'POST' },
+    ),
 };

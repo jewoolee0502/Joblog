@@ -1,9 +1,9 @@
 import { ConfidentialClientApplication } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
-import { prisma } from '../db.js';
-import { decrypt } from '../lib/crypto.js';
-import { EMAIL_BODY_MAX_CHARS } from '../lib/constants.js';
-import type { NormalizedEmail } from '../lib/types.js';
+import { query, queryOne } from './supabase';
+import { decrypt, encrypt } from './crypto';
+import { EMAIL_BODY_MAX_CHARS } from './constants';
+import type { NormalizedEmail } from './types';
 
 function createMsalClient(): ConfidentialClientApplication {
   return new ConfidentialClientApplication({
@@ -15,27 +15,22 @@ function createMsalClient(): ConfidentialClientApplication {
   });
 }
 
-/**
- * Fetch unread Outlook messages received after `since`.
- * Returns an empty array if the user has no Outlook token or if the token is invalid.
- */
-export async function fetchOutlookEmails(
-  userId: string,
-  since: Date,
-): Promise<NormalizedEmail[]> {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+export async function fetchOutlookEmails(userId: string, since: Date): Promise<NormalizedEmail[]> {
+  const user = await queryOne<{ outlook_refresh_token: string | null }>(
+    'SELECT outlook_refresh_token FROM users WHERE id = $1',
+    [userId],
+  );
 
-  if (!user.outlookRefreshToken) return [];
+  if (!user?.outlook_refresh_token) return [];
 
   let cacheSnapshot: string;
   try {
-    cacheSnapshot = decrypt(user.outlookRefreshToken);
+    cacheSnapshot = decrypt(user.outlook_refresh_token);
   } catch {
     console.warn('[outlook] Failed to decrypt token cache for user', userId);
     return [];
   }
 
-  // Restore MSAL token cache and attempt silent acquisition
   const msalClient = createMsalClient();
   msalClient.getTokenCache().deserialize(cacheSnapshot);
 
@@ -62,19 +57,17 @@ export async function fetchOutlookEmails(
     accessToken = result.accessToken;
 
     // Persist updated cache (may contain refreshed tokens)
-    const { encrypt } = await import('../lib/crypto.js');
     const updatedCache = msalClient.getTokenCache().serialize();
-    await prisma.user.update({
-      where: { id: userId },
-      data: { outlookRefreshToken: encrypt(updatedCache) },
-    });
+    await query(
+      'UPDATE users SET outlook_refresh_token = $1 WHERE id = $2',
+      [encrypt(updatedCache), userId],
+    );
   } catch (err) {
     console.warn('[outlook] Token acquisition failed for user', userId, err);
     await clearOutlookToken(userId);
     return [];
   }
 
-  // Query Microsoft Graph for unread messages
   const graphClient = Client.init({
     authProvider: (done) => done(null, accessToken),
   });
@@ -108,11 +101,7 @@ export async function fetchOutlookEmails(
       });
     }
 
-    // Update last polled timestamp
-    await prisma.user.update({
-      where: { id: userId },
-      data: { outlookLastPolledAt: new Date() },
-    });
+    await query('UPDATE users SET outlook_last_polled_at = NOW() WHERE id = $1', [userId]);
 
     return emails;
   } catch (err) {
@@ -122,8 +111,8 @@ export async function fetchOutlookEmails(
 }
 
 async function clearOutlookToken(userId: string): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { outlookRefreshToken: null, outlookLastPolledAt: null },
-  });
+  await query(
+    'UPDATE users SET outlook_refresh_token = NULL, outlook_last_polled_at = NULL WHERE id = $1',
+    [userId],
+  );
 }

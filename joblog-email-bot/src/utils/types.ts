@@ -1,6 +1,5 @@
-import type { ClassificationCategory } from './constants.js';
+import type { ClassificationCategory } from './constants';
 
-/** Normalized email from either Gmail or Outlook. */
 export interface NormalizedEmail {
   messageId: string;
   from: string;
@@ -11,14 +10,12 @@ export interface NormalizedEmail {
   provider: 'gmail' | 'outlook';
 }
 
-/** Result from the Claude email classifier. */
 export interface ClassificationResult {
   category: ClassificationCategory;
   confidence: number;
   reason: string;
 }
 
-/** Result from triaging an unmatched email — is it job-related? */
 export interface TriageResult {
   isJobRelated: boolean;
   category: ClassificationCategory;
@@ -28,7 +25,6 @@ export interface TriageResult {
   roleTitle: string | null;
 }
 
-/** Summary returned after a full email scan. */
 export interface ScanResult {
   emailsScanned: number;
   matched: number;
@@ -36,4 +32,31 @@ export interface ScanResult {
   newApplications: number;
   flaggedForReview: number;
   errors: string[];
+}
+
+export interface ApplicationMatch {
+  id: string;
+  companyName: string;
+  roleTitle: string;
+  status: string;
+}
+
+export interface ApplicationRow {
+  id: string;
+  user_id: string;
+  company_name: string;
+  role_title: string;
+  job_url: string | null;
+  status: string;
+  source: string;
+  contact_email: string | null;
+}
+
+export interface UserRow {
+  id: string;
+  email: string;
+  gmail_refresh_token: string | null;
+  outlook_refresh_token: string | null;
+  gmail_last_polled_at: string | null;
+  outlook_last_polled_at: string | null;
 }

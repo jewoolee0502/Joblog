@@ -18,8 +18,6 @@ export function statusAccent(status: ApplicationStatus): string {
       return 'border-slate-300 bg-slate-50';
     case 'APPLIED':
       return 'border-blue-300 bg-blue-50';
-    case 'ACKNOWLEDGED':
-      return 'border-cyan-300 bg-cyan-50';
     case 'SCREENING':
       return 'border-violet-300 bg-violet-50';
     case 'INTERVIEW':

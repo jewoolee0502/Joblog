@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Toaster, toast } from 'sonner';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { ApplicationDialog } from '@/components/ApplicationDialog';
+import { ReviewQueue } from '@/components/ReviewQueue';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SummaryBar } from '@/components/SummaryBar';
 import { useApplicationStore } from '@/store/applicationStore';
-import type { ApplicationStatus } from '@/types';
+import { STATUS_LABELS, type ApplicationStatus } from '@/types';
 
 type DialogState =
   | { open: false }
@@ -17,12 +19,43 @@ export default function App() {
   const isLoaded = useApplicationStore((s) => s.isLoaded);
   const error = useApplicationStore((s) => s.error);
   const loadApplications = useApplicationStore((s) => s.loadApplications);
+  const undoApplication = useApplicationStore((s) => s.undoApplication);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewCount, setReviewCount] = useState(0);
+  const shownAutoToasts = useRef(new Set<string>());
 
   useEffect(() => {
     loadApplications();
   }, [loadApplications]);
+
+  // Show undo toasts for recent auto-transitions (last 24h)
+  useEffect(() => {
+    if (!isLoaded) return;
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+
+    for (const app of applications) {
+      for (const entry of app.history) {
+        if (
+          entry.trigger === 'email_auto' &&
+          new Date(entry.changedAt).getTime() > cutoff &&
+          !shownAutoToasts.current.has(entry.id)
+        ) {
+          shownAutoToasts.current.add(entry.id);
+          const label = STATUS_LABELS[entry.toStatus] ?? entry.toStatus;
+          toast(`${app.companyName} moved to ${label}`, {
+            description: 'Auto-detected from email',
+            duration: 10000,
+            action: {
+              label: 'Undo',
+              onClick: () => undoApplication(app.id),
+            },
+          });
+        }
+      }
+    }
+  }, [isLoaded, applications, undoApplication]);
 
   const openCreate = (status: ApplicationStatus = 'SAVED') =>
     setDialog({ open: true, mode: 'create', initialStatus: status });
@@ -50,6 +83,20 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setReviewOpen(true)}
+              className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              title="Needs Review"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+              {reviewCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                  {reviewCount}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setSettingsOpen(true)}
               className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
@@ -105,7 +152,14 @@ export default function App() {
         onClose={close}
       />
 
+      <ReviewQueue
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        onViewApplication={openEdit}
+        onCountChange={setReviewCount}
+      />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <Toaster position="bottom-right" richColors />
     </div>
   );
 }

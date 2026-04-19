@@ -1,0 +1,20 @@
+{
+  "name": "joblog-email-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "adk dev",
+    "deploy": "adk deploy"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^2",
+    "@botpress/runtime": "latest",
+    "@microsoft/microsoft-graph-client": "^3",
+    "@supabase/supabase-js": "^2",
+    "googleapis": "^130",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,30 +1,26 @@
 import { google } from 'googleapis';
-import { prisma } from '../db.js';
-import { decrypt } from '../lib/crypto.js';
-import { EMAIL_BODY_MAX_CHARS } from '../lib/constants.js';
-import type { NormalizedEmail } from '../lib/types.js';
+import { query, queryOne } from './supabase';
+import { decrypt } from './crypto';
+import { EMAIL_BODY_MAX_CHARS } from './constants';
+import { extractEmailAddress } from './emailUtils';
+import type { NormalizedEmail } from './types';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI,
 );
 
-/**
- * Fetch unread Gmail messages received after `since`.
- * Returns an empty array if the user has no Gmail token or if the token is invalid.
- */
-export async function fetchGmailEmails(
-  userId: string,
-  since: Date,
-): Promise<NormalizedEmail[]> {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+export async function fetchGmailEmails(userId: string, since: Date): Promise<NormalizedEmail[]> {
+  const user = await queryOne<{ gmail_refresh_token: string | null }>(
+    'SELECT gmail_refresh_token FROM users WHERE id = $1',
+    [userId],
+  );
 
-  if (!user.gmailRefreshToken) return [];
+  if (!user?.gmail_refresh_token) return [];
 
   let refreshToken: string;
   try {
-    refreshToken = decrypt(user.gmailRefreshToken);
+    refreshToken = decrypt(user.gmail_refresh_token);
   } catch {
     console.warn('[gmail] Failed to decrypt refresh token for user', userId);
     return [];
@@ -33,19 +29,17 @@ export async function fetchGmailEmails(
   oauth2Client.setCredentials({ refresh_token: refreshToken });
   const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-  // Gmail query: all emails after a given date (read and unread)
   const afterDate = formatGmailDate(since);
-  const query = `after:${afterDate}`;
+  const q = `after:${afterDate}`;
 
   try {
-    // Paginate through all matching messages
     let pageToken: string | undefined;
     const allMessageIds: Array<{ id: string }> = [];
 
     do {
       const listRes = await gmail.users.messages.list({
         userId: 'me',
-        q: query,
+        q,
         maxResults: 500,
         pageToken,
       });
@@ -94,37 +88,25 @@ export async function fetchGmailEmails(
       }
     }
 
-    // Update last polled timestamp
-    await prisma.user.update({
-      where: { id: userId },
-      data: { gmailLastPolledAt: new Date() },
-    });
+    await query('UPDATE users SET gmail_last_polled_at = NOW() WHERE id = $1', [userId]);
 
     return emails;
   } catch (err: any) {
-    // If token is revoked/invalid, clear it and return empty
     if (err?.code === 401 || err?.code === 403) {
       console.warn('[gmail] Token invalid for user', userId, '— clearing token');
-      await prisma.user.update({
-        where: { id: userId },
-        data: { gmailRefreshToken: null, gmailLastPolledAt: null },
-      });
+      await query(
+        'UPDATE users SET gmail_refresh_token = NULL, gmail_last_polled_at = NULL WHERE id = $1',
+        [userId],
+      );
       return [];
     }
     throw err;
   }
 }
 
-/** Format a Date to Gmail query date format: YYYY/MM/DD */
 function formatGmailDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}/${m}/${d}`;
-}
-
-/** Extract the email address from a "Name <email>" string. */
-function extractEmailAddress(from: string): string {
-  const match = from.match(/<([^>]+)>/);
-  return match ? match[1] : from.trim();
 }

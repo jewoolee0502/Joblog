@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { toast } from 'sonner';
 import type { Application, ApplicationStatus } from '@/types';
+import { STATUS_LABELS } from '@/types';
 import {
   applicationsApi,
   type CreateApplicationPayload,
@@ -22,6 +24,7 @@ interface ApplicationStoreState {
     trigger?: 'manual' | 'email_auto' | 'nudge',
     triggerDetail?: string,
   ) => Promise<void>;
+  undoApplication: (id: string) => Promise<void>;
 }
 
 export const useApplicationStore = create<ApplicationStoreState>()((set, get) => ({
@@ -119,11 +122,24 @@ export const useApplicationStore = create<ApplicationStoreState>()((set, get) =>
     try {
       const updated = await applicationsApi.patch(id, { status: toStatus, trigger, triggerDetail });
       set({ applications: get().applications.map((a) => (a.id === id ? updated : a)) });
+      if (trigger === 'manual') {
+        const label = STATUS_LABELS[toStatus] ?? toStatus;
+        toast.success(`Moved ${current.companyName} to ${label}`);
+      }
     } catch (err) {
       set({
         applications: previous,
         error: err instanceof Error ? err.message : 'Failed to move application',
       });
+    }
+  },
+
+  undoApplication: async (id) => {
+    try {
+      const updated = await applicationsApi.undo(id);
+      set({ applications: get().applications.map((a) => (a.id === id ? updated : a)) });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : 'Failed to undo' });
     }
   },
 }));

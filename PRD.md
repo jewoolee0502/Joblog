@@ -1,4 +1,5 @@
 # Product Requirements Document — Joblog
+
 **Author:** Jewoo Lee | **Version:** 1.2 | **Last Updated:** April 14, 2026 | **Status:** In Progress
 
 ---
@@ -13,18 +14,19 @@ Job seekers managing 10–50+ applications per week have no system that automati
 
 ### Success Metrics
 
-| Metric | Target |
-|---|---|
-| Time to log a new application | < 10s (via extension) |
-| Auto-detected stage transitions | ≥ 70% |
-| Follow-up reminder accuracy | ≥ 90% |
-| Response rate visibility | < 2 clicks |
+| Metric                          | Target                |
+| ------------------------------- | --------------------- |
+| Time to log a new application   | < 10s (via extension) |
+| Auto-detected stage transitions | ≥ 70%                 |
+| Follow-up reminder accuracy     | ≥ 90%                 |
+| Response rate visibility        | < 2 clicks            |
 
 ---
 
 ## 2. Scope
 
 ### In Scope (v1.0 — personal use only)
+
 - User accounts (email/password + Google/Microsoft OAuth via Clerk)
 - Application cards with structured metadata + kanban board
 - Gmail + Outlook OAuth integration; `node-cron` job in Express server scans both inboxes daily at 7 AM EST, classifies emails via Claude API
@@ -36,9 +38,11 @@ Job seekers managing 10–50+ applications per week have no system that automati
 - Manual override for all automated actions
 
 ### Out of Scope (v1.0)
+
 Mobile native app, LinkedIn API, multi-user/team, calendar integration, offer comparison, ATS integrations, Firefox extension, public release / free tier
 
 ### Future (v2.0+)
+
 AI interview prep, auto-draft follow-ups, salary benchmarking, network graph, mobile push notifications
 
 ---
@@ -46,59 +50,66 @@ AI interview prep, auto-draft follow-ups, salary benchmarking, network graph, mo
 ## 3. User Stories
 
 ### Application Capture
-| ID | Story | P |
-|---|---|---|
-| U-01 | Open Chrome extension on any job listing → choose **Save** (SAVED) or **Applied** (APPLIED) → extension auto-scrapes JD and creates card on kanban | P0 |
-| U-02 | Manually create application card via dashboard form | P0 |
-| U-03 | JD snapshot stored permanently (survives posting takedown) | P0 |
-| U-04 | Tag applications with custom labels (e.g. "Toronto", "PM", "Referral") | P1 |
-| U-05 | Bulk-import from LinkedIn data export CSV | P2 |
-| U-25 | Full-text search across all saved JD snapshots | P1 |
+
+| ID   | Story                                                                                                                                              | P   |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| U-01 | Open Chrome extension on any job listing → choose **Save** (SAVED) or **Applied** (APPLIED) → extension auto-scrapes JD and creates card on kanban | P0  |
+| U-02 | Manually create application card via dashboard form                                                                                                | P0  |
+| U-03 | JD snapshot stored permanently (survives posting takedown)                                                                                         | P0  |
+| U-04 | Tag applications with custom labels (e.g. "Toronto", "PM", "Referral")                                                                             | P1  |
+| U-05 | Bulk-import from LinkedIn data export CSV                                                                                                          | P2  |
+| U-25 | Full-text search across all saved JD snapshots                                                                                                     | P1  |
 
 ### Stage Management
-| ID | Story | P |
-|---|---|---|
-| U-06 | Kanban board view of all applications by stage | P0 |
-| U-07 | Drag cards between columns to update stage | P0 |
-| U-08 | Full timeline of every status change per application | P1 |
-| U-09 | Stages auto-update when relevant company email received | P0 |
-| U-10 | Notification before automated transition; can cancel | P1 |
+
+| ID   | Story                                                   | P   |
+| ---- | ------------------------------------------------------- | --- |
+| U-06 | Kanban board view of all applications by stage          | P0  |
+| U-07 | Drag cards between columns to update stage              | P0  |
+| U-08 | Full timeline of every status change per application    | P1  |
+| U-09 | Stages auto-update when relevant company email received | P0  |
+| U-10 | Notification before automated transition; can cancel    | P1  |
 
 ### Email Automation
-| ID | Story | P |
-|---|---|---|
-| U-11 | Connect Gmail via OAuth | P0 |
-| U-11b | Connect Outlook via OAuth (both connected simultaneously) | P0 |
-| U-12 | `node-cron` job scans both inboxes daily at 7 AM EST and auto-updates kanban | P0 |
-| U-13 | See which email triggered a stage change + summary | P1 |
-| U-14 | Disconnect Gmail/Outlook at any time; tokens revoked | P0 |
-| U-15 | Unclear emails flagged for manual review, not silently dropped | P1 |
+
+| ID    | Story                                                                        | P   |
+| ----- | ---------------------------------------------------------------------------- | --- |
+| U-11  | Connect Gmail via OAuth                                                      | P0  |
+| U-11b | Connect Outlook via OAuth (both connected simultaneously)                    | P0  |
+| U-12  | `node-cron` job scans both inboxes daily at 7 AM EST and auto-updates kanban | P0  |
+| U-13  | See which email triggered a stage change + summary                           | P1  |
+| U-14  | Disconnect Gmail/Outlook at any time; tokens revoked                         | P0  |
+| U-15  | Unclear emails flagged for manual review, not silently dropped               | P1  |
 
 ### Reminders & Nudges
-| ID | Story | P |
-|---|---|---|
-| U-16 | Nudge when "Applied" stale > 7 days | P0 |
-| U-17 | Nudge when screening/interview stale > 3 days | P1 |
-| U-18 | Configurable stale thresholds per stage | P2 |
-| U-19 | Daily digest email of applications needing action | P2 |
+
+| ID   | Story                                             | P   |
+| ---- | ------------------------------------------------- | --- |
+| U-16 | Nudge when "Applied" stale > 7 days               | P0  |
+| U-17 | Nudge when screening/interview stale > 3 days     | P1  |
+| U-18 | Configurable stale thresholds per stage           | P2  |
+| U-19 | Daily digest email of applications needing action | P2  |
 
 ### Analytics
-| ID | Story | P |
-|---|---|---|
-| U-20 | Overall apply-to-response rate | P0 |
-| U-21 | Response rates by outreach channel | P1 |
-| U-22 | Trend chart: applications sent vs responses over time | P1 |
-| U-23 | Average time-in-stage across applications | P2 |
-| U-24 | CSV data export | P1 |
+
+| ID   | Story                                                 | P   |
+| ---- | ----------------------------------------------------- | --- |
+| U-20 | Overall apply-to-response rate                        | P0  |
+| U-21 | Response rates by outreach channel                    | P1  |
+| U-22 | Trend chart: applications sent vs responses over time | P1  |
+| U-23 | Average time-in-stage across applications             | P2  |
+| U-24 | CSV data export                                       | P1  |
 
 ---
 
 ## 4. Functional Requirements
 
 ### 4.1 Application Card Fields
+
 `id`, `user_id`, `company_name` (req), `role_title` (req), `job_url`, `jd_snapshot`, `status`, `source` (linkedin | company_site | cold_email | referral | job_board | other), `applied_at`, `last_updated_at`, `contact_name`, `contact_email`, `notes`, `tags[]`, `salary_range`, `location`, `is_remote`
 
 ### 4.2 Application Stages
+
 ```
 SAVED → APPLIED → ACKNOWLEDGED → SCREENING → INTERVIEW → FINAL_ROUND → OFFER → ACCEPTED
                                                                               ↘ REJECTED (any stage)
@@ -111,6 +122,7 @@ SAVED → APPLIED → ACKNOWLEDGED → SCREENING → INTERVIEW → FINAL_ROUND �
 **Integration:** Gmail and Outlook are both connected via OAuth. A `node-cron` scheduled job inside the Express server triggers daily at 7:00 AM EST, fetches unread emails from both inboxes via the Gmail API and Microsoft Graph API, and matches sender domains against tracked companies.
 
 **Scan workflow** (`server/src/services/emailScanner.ts`):
+
 1. Query users with connected email accounts
 2. Fetch active (non-terminal) applications, build company domain lookup
 3. Fetch unread emails from Gmail (`server/src/services/gmail.ts`) and Outlook (`server/src/services/outlook.ts`)
@@ -141,6 +153,7 @@ ACKNOWLEDGEMENT→ACKNOWLEDGED, SCREENING_REQUEST→SCREENING, INTERVIEW_INVITE�
 **Delivery:** In-app amber card highlight + stale badge on kanban. Optional daily email digest (future).
 
 ### 4.6 Analytics Dashboard
+
 - Funnel chart (applications per stage)
 - Key metrics: total apps, response rate, interview rate, offer rate, avg days to first response
 - Response rate by source (bar chart)
@@ -161,16 +174,18 @@ ACKNOWLEDGEMENT→ACKNOWLEDGED, SCREENING_REQUEST→SCREENING, INTERVIEW_INVITE�
 ## 6. UX
 
 ### Pages
-| Route | Description |
-|---|---|
-| `/` | Landing / login |
-| `/dashboard` | Kanban board |
-| `/applications/:id` | Application detail + timeline |
-| `/analytics` | Response rate dashboard |
-| `/settings` | Email connections, nudge prefs, account |
-| `/needs-action` | Stale/flagged cards |
+
+| Route               | Description                             |
+| ------------------- | --------------------------------------- |
+| `/`                 | Landing / login                         |
+| `/dashboard`        | Kanban board                            |
+| `/applications/:id` | Application detail + timeline           |
+| `/analytics`        | Response rate dashboard                 |
+| `/settings`         | Email connections, nudge prefs, account |
+| `/needs-action`     | Stale/flagged cards                     |
 
 ### Kanban Board
+
 - Horizontal scroll desktop, vertical stack mobile
 - Columns: SAVED, APPLIED, ACKNOWLEDGED, SCREENING, INTERVIEW, FINAL_ROUND, OFFER, REJECTED, GHOSTED
 - Card: company name, role title, location, days in stage, tag chips, amber highlight if stale, blue "Auto" badge if email-triggered
@@ -178,47 +193,48 @@ ACKNOWLEDGEMENT→ACKNOWLEDGED, SCREENING_REQUEST→SCREENING, INTERVIEW_INVITE�
 - "+ Add" per column for quick-add
 
 ### Review Queue
+
 UNCLEAR / low-confidence emails → "Needs Review" badge → modal with email subject, sender, snippet, classification guess + confidence → user picks correct classification or dismisses.
 
 ---
 
 ## 7. Milestones
 
-| Week | Deliverable | Status |
-|---|---|---|
-| 1 | React scaffold, kanban UI with mock data, card CRUD, drag-and-drop | ✅ Done |
-| 2 | Supabase DB, Express API, Prisma ORM, real persistence | ✅ Done |
-| 3 | Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel | ✅ Done |
-| 4 | End-to-end scan testing, undo toast, review queue UI | Planned |
-| 5 | Chrome extension (Save + Applied buttons, JD auto-scrape) | Planned |
-| 6 | Full-text JD search | Planned |
-| 7 | Nudge system (node-cron job + in-app display) | Planned |
-| 8 | Analytics dashboard UI | Planned |
-| 9 | Clerk auth integration, polish, loading states, error handling | Planned |
+| Week | Deliverable                                                                                  | Status  |
+| ---- | -------------------------------------------------------------------------------------------- | ------- |
+| 1    | React scaffold, kanban UI with mock data, card CRUD, drag-and-drop                           | ✅ Done |
+| 2    | Supabase DB, Express API, Prisma ORM, real persistence                                       | ✅ Done |
+| 3    | Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel | ✅ Done |
+| 4    | End-to-end scan testing, undo toast, review queue UI                                         | Planned |
+| 5    | Chrome extension (Save + Applied buttons, JD auto-scrape)                                    | Planned |
+| 6    | Full-text JD search                                                                          | Planned |
+| 7    | Nudge system (node-cron job + in-app display)                                                | Planned |
+| 8    | Analytics dashboard UI                                                                       | Planned |
+| 9    | Clerk auth integration, polish, loading states, error handling                               | Planned |
 
 ---
 
 ## 8. Risks
 
-| Risk | Mitigation |
-|---|---|
-| Gmail/Outlook API rate limits | Exponential backoff; single daily scan minimizes risk |
-| Microsoft token expiry | MSAL silent refresh, graceful re-auth prompt |
-| Claude API rate limits / cost | Single daily scan, ~500-char snippets, minimal token usage per email |
-| OAuth token revocation | Graceful re-auth prompt, never block UI on polling failure |
-| False positive rejections | Require confidence ≥ 0.85 for REJECTED, always show undo |
-| JD storage cost | Cap at 10,000 chars, truncate on capture |
-| Chrome Web Store review delay | Sideload in dev mode for personal use; store submission deferred |
+| Risk                          | Mitigation                                                           |
+| ----------------------------- | -------------------------------------------------------------------- |
+| Gmail/Outlook API rate limits | Exponential backoff; single daily scan minimizes risk                |
+| Microsoft token expiry        | MSAL silent refresh, graceful re-auth prompt                         |
+| Botpress workflow reliability | Timeout limits (10 min), max iteration cap (80 steps), error logging |
+| OAuth token revocation        | Graceful re-auth prompt, never block UI on polling failure           |
+| False positive rejections     | Require confidence ≥ 0.85 for REJECTED, always show undo             |
+| JD storage cost               | Cap at 10,000 chars, truncate on capture                             |
+| Chrome Web Store review delay | Sideload in dev mode for personal use; store submission deferred     |
 
 ---
 
 ## 9. Resolved Decisions
 
-1. Gmail + Outlook connected simultaneously via OAuth; `node-cron` job in Express server scans both inboxes daily at 7 AM EST using `claude-sonnet-4-20250514` for classification.
+1. Gmail + Outlook connected simultaneously via OAuth; Botpress bot scans both inboxes daily at 7 AM EST using `claude-sonnet-4-20250514` for classification.
 2. Dedicated REJECTED/GHOSTED column on kanban — all rejected and ghosted applications visible.
 3. Personal use only for v1.
 4. Full-text search across JD snapshots — yes.
 5. Chrome only for v1.
 6. No province-level analytics filtering; location shown on kanban card instead.
 7. Chrome extension uses two-button UX (Save / Applied) — no confirmation step, auto-scrapes JD from page.
-8. `node-cron` in Express handles all background automation (no Botpress, no Supabase Edge Functions).
+8. Botpress handles all background automation (no Supabase Edge Functions).

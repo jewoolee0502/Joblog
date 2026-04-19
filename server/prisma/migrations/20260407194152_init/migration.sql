@@ -27,6 +27,7 @@ CREATE TABLE "applications" (
     "last_updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "contact_name" TEXT,
     "contact_email" TEXT,
+    "email_url" TEXT,
     "notes" TEXT,
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "salary_range" TEXT,

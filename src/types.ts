@@ -3,7 +3,6 @@
 export const APPLICATION_STATUSES = [
   'SAVED',
   'APPLIED',
-  'ACKNOWLEDGED',
   'SCREENING',
   'INTERVIEW',
   'FINAL_ROUND',
@@ -48,6 +47,7 @@ export interface Application {
   lastUpdatedAt: string; // ISO
   contactName?: string;
   contactEmail?: string;
+  emailUrl?: string;
   notes?: string;
   tags: string[];
   salaryRange?: string;
@@ -61,7 +61,6 @@ export interface Application {
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   SAVED: 'Saved',
   APPLIED: 'Applied',
-  ACKNOWLEDGED: 'Acknowledged',
   SCREENING: 'Screening',
   INTERVIEW: 'Interview',
   FINAL_ROUND: 'Final Round',
@@ -76,17 +75,34 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
 export const KANBAN_COLUMNS: ApplicationStatus[] = [
   'SAVED',
   'APPLIED',
-  'ACKNOWLEDGED',
   'SCREENING',
   'INTERVIEW',
   'FINAL_ROUND',
   'OFFER',
+  'ACCEPTED',
+  'REJECTED',
+  'WITHDRAWN',
+  'GHOSTED',
 ];
+
+export interface Nudge {
+  id: string;
+  applicationId: string;
+  nudgeType: string;
+  message: string;
+  isDismissed: boolean;
+  createdAt: string;
+  application: {
+    id: string;
+    companyName: string;
+    roleTitle: string;
+    status: string;
+  };
+}
 
 // Stale thresholds in days (PRD §4.5)
 export const STALE_THRESHOLDS: Partial<Record<ApplicationStatus, number>> = {
   APPLIED: 7,
-  ACKNOWLEDGED: 5,
   SCREENING: 4,
   INTERVIEW: 3,
   FINAL_ROUND: 3,

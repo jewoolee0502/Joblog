@@ -57,8 +57,8 @@ const fromApp = (a: Application): FormState => ({
   notes: a.notes ?? '',
   salaryRange: a.salaryRange ?? '',
   location: a.location ?? '',
-  isRemote: a.isRemote,
-  tagsRaw: a.tags.join(', '),
+  isRemote: a.isRemote ?? false,
+  tagsRaw: (a.tags ?? []).join(', '),
 });
 
 export function ApplicationDialog({ open, mode, initialStatus, application, onClose }: Props) {
@@ -231,6 +231,21 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
                 onChange={(e) => update('contactEmail', e.target.value)}
                 className={inputCls}
               />
+            </Field>
+
+            <Field label="Source email" className="sm:col-span-2">
+              {application?.emailUrl ? (
+                <a
+                  href={application.emailUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800 underline truncate block"
+                >
+                  Open in inbox
+                </a>
+              ) : (
+                <span className="text-sm text-slate-400">No email linked</span>
+              )}
             </Field>
 
             <Field label="Tags (comma separated)" className="sm:col-span-2">

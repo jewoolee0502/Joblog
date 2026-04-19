@@ -8,7 +8,6 @@ const router = Router();
 const STATUSES = [
   'SAVED',
   'APPLIED',
-  'ACKNOWLEDGED',
   'SCREENING',
   'INTERVIEW',
   'FINAL_ROUND',
@@ -177,6 +176,42 @@ router.patch('/:id', async (req, res, next) => {
               },
             }
           : {}),
+      },
+      include: { history: { orderBy: { changedAt: 'asc' } } },
+    });
+
+    res.json(toApplicationDTO(updated));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/applications/:id/undo — revert the most recent status change
+router.post('/:id/undo', async (req, res, next) => {
+  try {
+    const app = await prisma.application.findFirst({
+      where: { id: req.params.id, userId: req.userId },
+      include: { history: { orderBy: { changedAt: 'desc' }, take: 1 } },
+    });
+    if (!app) return res.status(404).json({ error: 'Not found' });
+
+    const lastChange = app.history[0];
+    if (!lastChange || lastChange.fromStatus == null) {
+      return res.status(400).json({ error: { code: 'NO_UNDO', message: 'Nothing to undo' } });
+    }
+
+    const updated = await prisma.application.update({
+      where: { id: app.id },
+      data: {
+        status: lastChange.fromStatus,
+        history: {
+          create: {
+            fromStatus: app.status,
+            toStatus: lastChange.fromStatus,
+            trigger: 'manual',
+            triggerDetail: 'undo',
+          },
+        },
       },
       include: { history: { orderBy: { changedAt: 'asc' } } },
     });
