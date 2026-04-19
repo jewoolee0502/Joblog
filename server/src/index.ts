@@ -8,11 +8,6 @@ import analyticsRouter from './routes/analytics.js';
 import nudgesRouter from './routes/nudges.js';
 import internalRouter from './routes/internal.js';
 import oauthRouter from './routes/oauth.js';
-// Daily cron disabled — automated scanning handled by Botpress ADK bot.
-// Manual scans (Scan Now / Deep Scan) still use the internal endpoint.
-// import cron from 'node-cron';
-// import { prisma } from './db.js';
-// import { runEmailScan } from './services/emailScanner.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -48,7 +43,5 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`[joblog-server] listening on http://localhost:${PORT}`);
 
-  // Daily automated scan handled by Botpress ADK bot (joblog-email-bot).
-  // Manual scans still available via POST /api/internal/scan-emails.
-  console.log('[info] Daily email scan handled by Botpress ADK bot');
+  console.log('[info] Daily scans handled by Botpress ADK bot. Manual scans via /api/auth/trigger-scan');
 });

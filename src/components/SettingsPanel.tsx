@@ -29,14 +29,19 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const handleScan = async (months?: number) => {
     setScanning(true);
     try {
-      const result = await authApi.triggerScan(months);
-      const parts = [
-        `${result.emailsScanned} emails scanned`,
-        result.statusUpdates > 0 ? `${result.statusUpdates} status updates` : null,
-        result.newApplications > 0 ? `${result.newApplications} new applications` : null,
-        result.flaggedForReview > 0 ? `${result.flaggedForReview} flagged for review` : null,
-      ].filter(Boolean);
-      toast.success(`Scan complete: ${parts.join(', ')}`);
+      const result = await authApi.triggerScan(months) as any;
+
+      if (result.background) {
+        toast.success(result.message ?? 'Deep scan started in background. Your Kanban board will update automatically.');
+      } else {
+        const parts = [
+          `${result.emailsScanned} emails scanned`,
+          result.statusUpdates > 0 ? `${result.statusUpdates} status updates` : null,
+          result.newApplications > 0 ? `${result.newApplications} new applications` : null,
+          result.flaggedForReview > 0 ? `${result.flaggedForReview} flagged for review` : null,
+        ].filter(Boolean);
+        toast.success(`Scan complete: ${parts.join(', ')}`);
+      }
       const updated = await authApi.getConnections();
       setConnections(updated);
     } catch (err: any) {

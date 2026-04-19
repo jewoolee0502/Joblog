@@ -93,11 +93,4 @@ router.post('/flag-review', async (req: Request, res: Response, next: NextFuncti
   }
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/internal/check-nudges — stub (Week 7)
-// ---------------------------------------------------------------------------
-router.post('/check-nudges', (_req: Request, res: Response) => {
-  res.json({ ok: true, stub: true, message: 'Nudge check not implemented yet (Week 7)' });
-});
-
 export default router;

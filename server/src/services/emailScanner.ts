@@ -215,18 +215,18 @@ export async function runEmailScan(userId: string, sinceOverride?: Date): Promis
         if (!triage.isJobRelated) continue;
         if (!triage.companyName) continue;
 
-        // Skip if an application for this company + role already exists
+        // Skip if an application with a matching role title already exists for this company
         const roleTitle = triage.roleTitle ?? 'Unknown Role';
-        const existingApp = await prisma.application.findFirst({
+        const existingApps = await prisma.application.findMany({
           where: {
             userId,
             companyName: { equals: triage.companyName, mode: 'insensitive' },
-            roleTitle: { equals: roleTitle, mode: 'insensitive' },
           },
-          select: { id: true },
+          select: { id: true, roleTitle: true },
         });
-        if (existingApp) {
-          console.log(`[scanner] Skipping duplicate: ${triage.companyName} — ${roleTitle} (already exists)`);
+        const isDuplicate = existingApps.some((a) => fuzzyMatchRoleTitle(roleTitle, a.roleTitle));
+        if (isDuplicate) {
+          console.log(`[scanner] Skipping duplicate: ${triage.companyName} — ${roleTitle} (similar role exists)`);
           continue;
         }
 

@@ -1,40 +1,47 @@
 import { Workflow, z, actions, bot } from '@botpress/runtime';
-import { query } from '../utils/supabase';
+
+const BATCH_SIZE = 50;
 
 export const DailyScan = new Workflow({
   name: 'dailyScan',
   description: 'Daily email inbox scan — fetches emails, classifies them, and updates application statuses',
 
-  // 12:00 UTC = 7:00 AM EST (8:00 AM EDT during daylight saving)
+  // 12:00 UTC = 7:00 AM EST
   schedule: '0 12 * * *',
   timeout: '2h',
 
   input: z.object({
-    userId: z.string().optional().describe('Scan a specific user. If empty, scans all users with tokens.'),
-    sinceOverride: z.string().optional().describe('ISO date to scan from. For deep scans (e.g., past 3 months).'),
+    userId: z.string().optional(),
+    sinceOverride: z.string().optional(),
   }),
 
   state: z.object({
-    usersScanned: z.number().default(0),
-    totalEmailsScanned: z.number().default(0),
-    totalStatusUpdates: z.number().default(0),
-    totalNewApplications: z.number().default(0),
-    totalErrors: z.number().default(0),
+    totalFetched: z.number().default(0),
+    totalFiltered: z.number().default(0),
+    totalBatches: z.number().default(0),
+    completedBatches: z.number().default(0),
+    statusUpdates: z.number().default(0),
+    newApplications: z.number().default(0),
+    flaggedForReview: z.number().default(0),
+    errors: z.array(z.string()).default([]),
   }),
 
   output: z.object({
-    usersScanned: z.number(),
-    totalEmailsScanned: z.number(),
-    totalStatusUpdates: z.number(),
-    totalNewApplications: z.number(),
-    totalErrors: z.number(),
+    totalFetched: z.number(),
+    totalFiltered: z.number(),
+    totalBatches: z.number(),
+    statusUpdates: z.number(),
+    newApplications: z.number(),
+    flaggedForReview: z.number(),
+    errors: z.array(z.string()),
   }),
 
   async handler({ input, state, step }) {
+    // Step 1: Get users
     const users = await step('get-users', async () => {
-      if (input.userId) {
-        return [{ id: input.userId }];
-      }
+      if (input.userId) return [{ id: input.userId }];
+
+      const { query } = await import('../utils/supabase');
       const rows = await query<{ id: string }>(
         'SELECT id FROM users WHERE gmail_refresh_token IS NOT NULL OR outlook_refresh_token IS NOT NULL',
       );
@@ -47,47 +54,84 @@ export const DailyScan = new Workflow({
     }
 
     for (const user of users) {
-      const result = await step(`scan-${user.id}`, async () => {
-        try {
-          return await actions.scanUserEmails({
-            userId: user.id,
-            sinceOverride: input.sinceOverride,
-          });
-        } catch (err) {
-          console.error(`[dailyScan] Failed for user ${user.id}:`, err);
-          return {
-            emailsScanned: 0,
-            matched: 0,
-            statusUpdates: 0,
-            newApplications: 0,
-            flaggedForReview: 0,
-            errors: [err instanceof Error ? err.message : String(err)],
-          };
-        }
+      // Step 2: Fetch and filter emails (cached after first run)
+      const fetchResult = await step(`fetch-${user.id}`, async () => {
+        return await actions.fetchAndFilterEmails({
+          userId: user.id,
+          sinceOverride: input.sinceOverride,
+        });
       });
 
-      state.usersScanned++;
-      state.totalEmailsScanned += result.emailsScanned;
-      state.totalStatusUpdates += result.statusUpdates;
-      state.totalNewApplications += result.newApplications;
-      state.totalErrors += result.errors.length;
+      state.totalFetched += fetchResult.totalFetched;
+      state.totalFiltered += fetchResult.totalFiltered;
+      state.errors.push(...fetchResult.errors);
 
-      console.log(
-        `[dailyScan] User ${user.id}: scanned=${result.emailsScanned}, updates=${result.statusUpdates}, new=${result.newApplications}`,
-      );
+      const allMatched = fetchResult.matched;
+      const allUnmatched = fetchResult.unmatched;
+      const totalToProcess = allMatched.length + allUnmatched.length;
+
+      console.log(`[dailyScan] User ${user.id}: ${fetchResult.totalFetched} fetched, ${fetchResult.totalFiltered} filtered, ${totalToProcess} to process`);
+
+      if (totalToProcess === 0) continue;
+
+      // Step 3: Process in batches of BATCH_SIZE
+      // Combine matched + unmatched into one list for batching
+      const totalBatches = Math.ceil(totalToProcess / BATCH_SIZE);
+      state.totalBatches += totalBatches;
+
+      for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+        const batchStart = batchIdx * BATCH_SIZE;
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalToProcess);
+
+        // Split the batch range across matched and unmatched
+        const matchedInBatch = allMatched.slice(
+          Math.max(0, batchStart),
+          Math.min(allMatched.length, batchEnd),
+        );
+        const unmatchedStart = Math.max(0, batchStart - allMatched.length);
+        const unmatchedEnd = Math.max(0, batchEnd - allMatched.length);
+        const unmatchedInBatch = allUnmatched.slice(unmatchedStart, unmatchedEnd);
+
+        const batchResult = await step(`batch-${user.id}-${batchIdx}`, async () => {
+          console.log(`[dailyScan] Processing batch ${batchIdx + 1}/${totalBatches} (${matchedInBatch.length} matched, ${unmatchedInBatch.length} unmatched)`);
+
+          return await actions.scanUserEmails({
+            userId: user.id,
+            matched: matchedInBatch,
+            unmatched: unmatchedInBatch,
+          });
+        });
+
+        state.completedBatches++;
+        state.statusUpdates += batchResult.statusUpdates;
+        state.newApplications += batchResult.newApplications;
+        state.flaggedForReview += batchResult.flaggedForReview;
+        state.errors.push(...batchResult.errors);
+
+        console.log(
+          `[dailyScan] Batch ${batchIdx + 1}/${totalBatches} complete: ` +
+          `${batchResult.statusUpdates} updates, ${batchResult.newApplications} new apps, ` +
+          `${batchResult.flaggedForReview} flagged, ${batchResult.errors.length} errors`
+        );
+      }
     }
 
-    await step('update-bot-state', async () => {
+    // Final step: update bot state
+    await step('finalize', async () => {
       bot.state.lastScanTime = new Date().toISOString();
       bot.state.totalScans = (bot.state.totalScans ?? 0) + 1;
     });
 
+    console.log(`[dailyScan] Scan complete: ${state.totalFetched} fetched, ${state.totalFiltered} filtered, ${state.statusUpdates} updates, ${state.newApplications} new apps`);
+
     return {
-      usersScanned: state.usersScanned,
-      totalEmailsScanned: state.totalEmailsScanned,
-      totalStatusUpdates: state.totalStatusUpdates,
-      totalNewApplications: state.totalNewApplications,
-      totalErrors: state.totalErrors,
+      totalFetched: state.totalFetched,
+      totalFiltered: state.totalFiltered,
+      totalBatches: state.totalBatches,
+      statusUpdates: state.statusUpdates,
+      newApplications: state.newApplications,
+      flaggedForReview: state.flaggedForReview,
+      errors: state.errors,
     };
   },
 });

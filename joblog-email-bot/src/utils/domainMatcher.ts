@@ -71,8 +71,8 @@ export function matchEmailToApplications(
 }
 
 /**
- * Fuzzy match a role title extracted from an email against an application's role title.
- * Returns true if they likely refer to the same position.
+ * Check if two role titles refer to the same position.
+ * Only exact match after normalization (case/punctuation insensitive).
  */
 export function fuzzyMatchRoleTitle(emailRole: string, appRole: string): boolean {
   const normalize = (s: string) =>
@@ -81,20 +81,5 @@ export function fuzzyMatchRoleTitle(emailRole: string, appRole: string): boolean
       .replace(/\s+/g, ' ')
       .trim();
 
-  const a = normalize(emailRole);
-  const b = normalize(appRole);
-
-  // Exact match after normalization
-  if (a === b) return true;
-
-  // One contains the other
-  if (a.includes(b) || b.includes(a)) return true;
-
-  // Check if significant words overlap (at least 2 matching words)
-  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'at', 'in', 'for', 'to', 'sr', 'jr', 'i', 'ii', 'iii']);
-  const wordsA = a.split(' ').filter((w) => w.length > 1 && !stopWords.has(w));
-  const wordsB = b.split(' ').filter((w) => w.length > 1 && !stopWords.has(w));
-  const overlap = wordsA.filter((w) => wordsB.includes(w));
-
-  return overlap.length >= 2 || (overlap.length >= 1 && Math.min(wordsA.length, wordsB.length) <= 2);
+  return normalize(emailRole) === normalize(appRole);
 }

@@ -131,7 +131,7 @@ The following are NOT job-related — mark as is_job_related = false:
 - General company newsletters (even from companies the user applied to)
 - Networking or recruiter outreach that is NOT about a specific application
 
-If job-related, extract the company name and role title. If NOT, set is_job_related to false.`,
+If job-related, extract the company name and role title. For role_title, extract the EXACT job title as written in the email — do NOT paraphrase or generalize (e.g., "Junior AI Engineer" not "Software Engineer"). If NOT job-related, set is_job_related to false.`,
       tools: [
         {
           name: 'triage_email',

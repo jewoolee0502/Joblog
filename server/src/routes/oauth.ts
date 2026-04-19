@@ -215,7 +215,10 @@ router.post('/trigger-scan', async (req, res, next) => {
       sinceOverride = since.toISOString();
     }
 
-    // Trigger the bot's dailyScan workflow with the current user
+    const isDeepScan = months > 0;
+    console.log(`[trigger-scan] ${isDeepScan ? 'DEEP' : 'NORMAL'} scan: months=${months}, sinceOverride=${sinceOverride ?? 'none'}, userId=${req.userId}`);
+
+    // Trigger the bot's dailyScan workflow
     const { workflow } = await bpClient.createWorkflow({
       name: 'dailyScan',
       status: 'pending',
@@ -225,7 +228,22 @@ router.post('/trigger-scan', async (req, res, next) => {
       },
     });
 
-    // Poll for workflow completion (timeout after 120s)
+    // Deep scan: return immediately (runs in background)
+    if (isDeepScan) {
+      res.json({
+        emailsScanned: 0,
+        matched: 0,
+        statusUpdates: 0,
+        newApplications: 0,
+        flaggedForReview: 0,
+        errors: [],
+        background: true,
+        message: `Deep scan started (past ${months} months). It will run in the background and update your Kanban board automatically.`,
+      });
+      return;
+    }
+
+    // Normal scan: poll for completion (small scans complete in seconds)
     const startTime = Date.now();
     const TIMEOUT = 120_000;
     let status = workflow.status;
@@ -240,17 +258,16 @@ router.post('/trigger-scan', async (req, res, next) => {
 
     if (status === 'completed' && output) {
       res.json({
-        emailsScanned: output.totalEmailsScanned ?? 0,
+        emailsScanned: output.totalFetched ?? 0,
         matched: 0,
-        statusUpdates: output.totalStatusUpdates ?? 0,
-        newApplications: output.totalNewApplications ?? 0,
-        flaggedForReview: 0,
-        errors: [],
+        statusUpdates: output.statusUpdates ?? 0,
+        newApplications: output.newApplications ?? 0,
+        flaggedForReview: output.flaggedForReview ?? 0,
+        errors: output.errors ?? [],
       });
     } else if (status === 'failed') {
       res.status(500).json({ error: { code: 'SCAN_FAILED', message: 'Bot workflow failed' } });
     } else {
-      // Timed out but scan is still running
       res.json({
         emailsScanned: 0,
         matched: 0,
