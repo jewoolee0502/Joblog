@@ -1,7 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { prisma } from '../db.js';
 import { TERMINAL_STATUSES } from '../lib/constants.js';
-import { runEmailScan } from '../services/emailScanner.js';
 
 const router = Router();
 
@@ -15,24 +14,6 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     return;
   }
   next();
-});
-
-// ---------------------------------------------------------------------------
-// POST /api/internal/scan-emails — trigger a full email scan for a user
-// ---------------------------------------------------------------------------
-router.post('/scan-emails', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.body.userId as string;
-    if (!userId) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'userId is required' } });
-      return;
-    }
-
-    const result = await runEmailScan(userId);
-    res.json({ data: result });
-  } catch (err) {
-    next(err);
-  }
 });
 
 // ---------------------------------------------------------------------------
