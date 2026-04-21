@@ -83,7 +83,7 @@ router.post('/from-extension', async (req, res, next) => {
         companyName,
         roleTitle,
         jobUrl: data.pageUrl,
-        jdSnapshot: pageText,
+        jdSnapshot: ((output.jdSnapshot as string) || pageText).substring(0, JD_MAX_CHARS),
         status: data.status,
         source,
         location: (output.location as string) || undefined,
