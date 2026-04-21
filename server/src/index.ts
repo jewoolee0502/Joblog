@@ -8,12 +8,13 @@ import analyticsRouter from './routes/analytics.js';
 import nudgesRouter from './routes/nudges.js';
 import internalRouter from './routes/internal.js';
 import oauthRouter from './routes/oauth.js';
+import extensionRouter from './routes/extension.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? 'http://localhost:5173';
 
-app.use(cors({ origin: WEB_ORIGIN, credentials: true }));
+app.use(cors({ origin: [WEB_ORIGIN, /^chrome-extension:\/\//], credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (_req, res) => {
@@ -24,6 +25,7 @@ app.get('/health', (_req, res) => {
 app.use('/api', authMiddleware);
 app.use('/api/auth', oauthRouter);
 app.use('/api/applications', applicationsRouter);
+app.use('/api/applications', extensionRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/nudges', nudgesRouter);
 app.use('/api/internal', internalRouter);
