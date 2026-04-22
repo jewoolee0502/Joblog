@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Joblog</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">Joblog</h1>
+
+    <!-- Idle state -->
+    <div id="idle" class="state">
+      <p class="subtitle">Save this job posting</p>
+      <div class="buttons">
+        <button id="btn-save" class="btn btn-save">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Save
+        </button>
+        <button id="btn-apply" class="btn btn-apply">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Applied
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading" class="state hidden">
+      <div class="spinner"></div>
+      <p class="loading-text">Analyzing job posting...</p>
+    </div>
+
+    <!-- Success state -->
+    <div id="success" class="state hidden">
+      <div class="success-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <p id="success-status" class="success-status"></p>
+      <p id="success-company" class="success-company"></p>
+      <p id="success-role" class="success-role"></p>
+    </div>
+
+    <!-- Error state -->
+    <div id="error" class="state hidden">
+      <p id="error-message" class="error-message"></p>
+      <button id="btn-retry" class="btn btn-retry">Try Again</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

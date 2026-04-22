@@ -1,0 +1,15 @@
+{
+  "name": "joblog-chrome-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "adk dev",
+    "deploy": "adk deploy"
+  },
+  "dependencies": {
+    "@botpress/runtime": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
