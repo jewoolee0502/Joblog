@@ -28,6 +28,14 @@ export interface TriageResult {
   roleTitle: string | null;
 }
 
+/** A matched application from domain lookup. */
+export interface ApplicationMatch {
+  id: string;
+  companyName: string;
+  roleTitle: string;
+  status: string;
+}
+
 /** Summary returned after a full email scan. */
 export interface ScanResult {
   emailsScanned: number;

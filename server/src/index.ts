@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express, { type ErrorRequestHandler } from 'express';
 import cors from 'cors';
+import cron from 'node-cron';
 import { ZodError } from 'zod';
 import { authMiddleware } from './auth.js';
 import applicationsRouter from './routes/applications.js';
@@ -9,6 +10,7 @@ import nudgesRouter from './routes/nudges.js';
 import internalRouter from './routes/internal.js';
 import oauthRouter from './routes/oauth.js';
 import extensionRouter from './routes/extension.js';
+import { runFullScan } from './services/emailScanner.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
@@ -45,5 +47,15 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`[joblog-server] listening on http://localhost:${PORT}`);
 
-  console.log('[info] Daily scans handled by Botpress ADK bot. Manual scans via /api/auth/trigger-scan');
+  // Daily email scan: 12:00 UTC = 7:00 AM EST
+  cron.schedule('0 12 * * *', async () => {
+    console.log('[cron] Starting daily email scan');
+    try {
+      await runFullScan();
+    } catch (err) {
+      console.error('[cron] Daily email scan failed:', err);
+    }
+  });
+
+  console.log('[cron] Daily email scan scheduled for 7:00 AM EST (12:00 UTC)');
 });

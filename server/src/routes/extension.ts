@@ -36,12 +36,9 @@ router.post('/from-extension', async (req, res, next) => {
     const data = extensionSchema.parse(req.body);
     const pageText = data.pageText.substring(0, JD_MAX_CHARS);
 
-    // Call Botpress email-bot to extract structured fields from page text
-    const { Client } = await import('@botpress/client');
-    const bpClient = new Client({
-      botId: process.env.BP_BOT_ID!,
-      token: process.env.BOTPRESS_TOKEN!,
-    });
+    // Call Botpress to extract structured fields from page text
+    const { createBotpressClient } = await import('../lib/botpress.js');
+    const bpClient = createBotpressClient();
 
     let output: Record<string, unknown>;
     try {
