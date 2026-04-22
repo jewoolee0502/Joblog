@@ -1,4 +1,4 @@
-import { Workflow, z } from '@botpress/runtime';
+import { Action, z } from '@botpress/runtime';
 
 const PARSE_JD_SYSTEM_PROMPT = `You are a job description parser. Given a web page's text content from a job posting, extract structured fields.
 
@@ -18,10 +18,9 @@ Rules:
 - Do NOT invent or hallucinate information not present in the text
 - For jdSnapshot, copy the relevant text verbatim from the page — do not summarize or rewrite`;
 
-export const ParseJobDescription = new Workflow({
+export const parseJobDescription = new Action({
   name: 'parseJobDescription',
   description: 'Extract structured job application fields from raw page text',
-  timeout: '30s',
 
   input: z.object({
     pageText: z.string(),
@@ -38,47 +37,46 @@ export const ParseJobDescription = new Workflow({
     jdSnapshot: z.string(),
   }),
 
-  async handler({ input, step, client }) {
-    const parsed = await step('parse-with-llm', async () => {
-      const response = await client.callAction({
-        type: 'anthropic:generateContent',
-        input: {
-          model: { id: 'claude-sonnet-4-20250514' },
-          systemPrompt: PARSE_JD_SYSTEM_PROMPT,
-          messages: [
-            {
-              role: 'user',
-              content: `Page URL: ${input.pageUrl}\n\nPage content:\n${input.pageText}`,
-            },
-          ],
-          responseFormat: 'json_object',
-          maxTokens: 4096,
-        },
-      });
-
-      const output = response.output;
-      let content = output?.choices?.[0]?.content ?? '{}';
-      content = content
-        .replace(/^```(?:json)?\s*\n?/i, '')
-        .replace(/\n?```\s*$/i, '')
-        .trim();
-
-      try {
-        return JSON.parse(content);
-      } catch {
-        console.error('[parseJD] Failed to parse LLM JSON:', content);
-        return {};
-      }
+  async handler({ input, client }) {
+    const response = await client.callAction({
+      type: 'anthropic:generateContent',
+      input: {
+        model: { id: 'claude-sonnet-4-20250514' },
+        systemPrompt: PARSE_JD_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: `Page URL: ${input.pageUrl}\n\nPage content:\n${input.pageText}`,
+          },
+        ],
+        responseFormat: 'json_object',
+        maxTokens: 4096,
+      },
     });
 
+    const output = response.output;
+    let content = output?.choices?.[0]?.content ?? '{}';
+    content = content
+      .replace(/^```(?:json)?\s*\n?/i, '')
+      .replace(/\n?```\s*$/i, '')
+      .trim();
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      console.error('[parseJD] Failed to parse LLM JSON:', content);
+      parsed = {};
+    }
+
     return {
-      companyName: parsed.companyName || 'Unknown Company',
-      roleTitle: parsed.roleTitle || 'Unknown Role',
-      location: parsed.location || null,
-      salaryRange: parsed.salaryRange || null,
-      isRemote: parsed.isRemote ?? false,
-      tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8) : [],
-      jdSnapshot: parsed.jdSnapshot || '',
+      companyName: (parsed.companyName as string) || 'Unknown Company',
+      roleTitle: (parsed.roleTitle as string) || 'Unknown Role',
+      location: (parsed.location as string) || null,
+      salaryRange: (parsed.salaryRange as string) || null,
+      isRemote: (parsed.isRemote as boolean) ?? false,
+      tags: Array.isArray(parsed.tags) ? (parsed.tags as string[]).slice(0, 8) : [],
+      jdSnapshot: (parsed.jdSnapshot as string) || '',
     };
   },
 });

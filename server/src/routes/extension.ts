@@ -36,37 +36,26 @@ router.post('/from-extension', async (req, res, next) => {
     const data = extensionSchema.parse(req.body);
     const pageText = data.pageText.substring(0, JD_MAX_CHARS);
 
-    // Call Botpress bot to extract structured fields from page text
+    // Call Botpress email-bot to extract structured fields from page text
     const { Client } = await import('@botpress/client');
     const bpClient = new Client({
-      botId: process.env.BP_CHROME_BOT_ID!,
+      botId: process.env.BP_BOT_ID!,
       token: process.env.BOTPRESS_TOKEN!,
     });
 
-    const { workflow } = await bpClient.createWorkflow({
-      name: 'parseJobDescription',
-      status: 'pending',
-      input: { pageText, pageUrl: data.pageUrl },
-    });
-
-    // Poll for completion (typically finishes in 5-15 seconds)
-    const startTime = Date.now();
-    const TIMEOUT = 30_000;
-    let status = workflow.status;
-    let output = workflow.output;
-
-    while ((status === 'in_progress' || status === 'pending') && Date.now() - startTime < TIMEOUT) {
-      await new Promise((r) => setTimeout(r, 1500));
-      const { workflow: updated } = await bpClient.getWorkflow({ id: workflow.id });
-      status = updated.status;
-      output = updated.output;
-    }
-
-    if (status !== 'completed' || !output) {
+    let output: Record<string, unknown>;
+    try {
+      const result = await bpClient.callAction({
+        type: 'parseJobDescription',
+        input: { pageText, pageUrl: data.pageUrl },
+      });
+      output = result.output as Record<string, unknown>;
+    } catch (err) {
+      console.error('[extension] parseJobDescription action failed:', err);
       res.status(500).json({
         error: {
           code: 'PARSE_FAILED',
-          message: status === 'failed' ? 'Failed to parse job description' : 'Parsing timed out — try again',
+          message: 'Failed to parse job description — try again',
         },
       });
       return;

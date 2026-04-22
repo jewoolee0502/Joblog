@@ -201,7 +201,7 @@ router.post('/trigger-scan', async (req, res, next) => {
   try {
     const { Client } = await import('@botpress/client');
     const bpClient = new Client({
-      botId: process.env.BOTPRESS_BOT_ID!,
+      botId: process.env.BP_BOT_ID!,
       token: process.env.BOTPRESS_TOKEN!,
     });
 
