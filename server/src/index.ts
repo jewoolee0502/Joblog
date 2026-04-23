@@ -47,8 +47,9 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`[joblog-server] listening on http://localhost:${PORT}`);
 
-  // Daily email scan: 12:00 UTC = 7:00 AM EST
-  cron.schedule('0 12 * * *', async () => {
+  // Daily email scan (default: 12:00 UTC = 7:00 AM EST)
+  const cronSchedule = process.env.CRON_SCAN_SCHEDULE ?? '0 12 * * *';
+  cron.schedule(cronSchedule, async () => {
     console.log('[cron] Starting daily email scan');
     try {
       await runFullScan();
@@ -57,5 +58,5 @@ app.listen(PORT, () => {
     }
   });
 
-  console.log('[cron] Daily email scan scheduled for 7:00 AM EST (12:00 UTC)');
+  console.log(`[cron] Daily email scan scheduled (${cronSchedule})`);
 });

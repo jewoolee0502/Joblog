@@ -20,7 +20,10 @@ export async function fetchGmailEmails(
 ): Promise<NormalizedEmail[]> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
-  if (!user.gmailRefreshToken) return [];
+  if (!user.gmailRefreshToken) {
+    console.log('[gmail] No refresh token for user', userId);
+    return [];
+  }
 
   let refreshToken: string;
   try {
@@ -57,8 +60,11 @@ export async function fetchGmailEmails(
       pageToken = listRes.data.nextPageToken ?? undefined;
     } while (pageToken);
 
-    if (allMessageIds.length === 0) return [];
-    console.log(`[gmail] Found ${allMessageIds.length} messages to process`);
+    if (allMessageIds.length === 0) {
+      console.log(`[gmail] No messages found after ${afterDate} for user ${userId}`);
+      return [];
+    }
+    console.log(`[gmail] Found ${allMessageIds.length} messages after ${afterDate} for user ${userId}`);
 
     const emails: NormalizedEmail[] = [];
 
@@ -103,7 +109,7 @@ export async function fetchGmailEmails(
     return emails;
   } catch (err: any) {
     // If token is revoked/invalid, clear it and return empty
-    if (err?.code === 401 || err?.code === 403) {
+    if (err?.code === 400 || err?.code === 401 || err?.code === 403 || err?.response?.data?.error === 'invalid_grant') {
       console.warn('[gmail] Token invalid for user', userId, '— clearing token');
       await prisma.user.update({
         where: { id: userId },

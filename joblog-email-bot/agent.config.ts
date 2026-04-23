@@ -7,14 +7,14 @@ export default defineConfig({
   dependencies: {
     integrations: {
       anthropic: {
-        version: 'anthropic@16.0.0',
+        version: 'anthropic@17.0.0',
         enabled: true,
       },
     },
   },
 
   defaultModels: {
-    autonomous: 'anthropic:claude-3-5-sonnet',
-    zai: 'anthropic:claude-3-5-sonnet',
+    autonomous: 'best',
+    zai: 'best',
   },
 });

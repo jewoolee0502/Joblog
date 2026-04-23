@@ -16,13 +16,23 @@ NOT job-related (mark isJobRelated = false):
 - Product updates, surveys, account notifications
 - Recruiter outreach that is NOT about a specific application
 
+STATUS CATEGORIES (use these exact values):
+- APPLIED — Company confirmed receipt of the application
+- SCREENING — Company is requesting an assessment, phone screen, or coding test
+- INTERVIEW — Company is inviting to an interview
+- REJECTED — Company is rejecting the application
+- OFFER — Company is extending an offer
+- UNCLEAR — Not about a job application status
+
 CRITICAL: For roleTitle, extract the EXACT job title as written in the email. Do NOT paraphrase or generalize. For example:
 - If the email says "Junior AI Engineer", return "Junior AI Engineer" (NOT "Software Engineer")
-- If the email says "Full Stack Developer (TypeScript, React, Node.js)", return that exact string`;
+- If the email says "Full Stack Developer (TypeScript, React, Node.js)", return that exact string
+
+If the email is in a non-English language (e.g. French), translate and understand it the same way as English emails.`;
 
 const triageSchema = z.object({
   isJobRelated: z.boolean(),
-  category: z.enum(['ACKNOWLEDGEMENT', 'SCREENING_REQUEST', 'INTERVIEW_INVITE', 'REJECTION', 'OFFER', 'UNCLEAR']),
+  category: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'REJECTED', 'OFFER', 'UNCLEAR']),
   confidence: z.number().min(0).max(1),
   reason: z.string(),
   companyName: z.string().nullable(),

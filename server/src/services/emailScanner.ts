@@ -6,19 +6,18 @@ import { isObviouslyNotJobRelated, getYesterdayWindow } from '../lib/emailFilter
 import {
   buildDomainLookup,
   matchEmailToApplications,
-  fuzzyMatchRoleTitle,
   isForwardTransition,
+  fuzzyMatchRoleTitle,
 } from '../lib/domainMatcher.js';
 import {
   TERMINAL_STATUSES,
-  CLASSIFICATION_TO_STATUS,
   CONFIDENCE_THRESHOLDS,
   CLASSIFICATION_CATEGORIES,
+  TRIAGE_BATCH_SIZE,
 } from '../lib/constants.js';
 import type { NormalizedEmail, ScanResult, ApplicationMatch } from '../lib/types.js';
 import type { ClassificationCategory } from '../lib/constants.js';
 
-const BATCH_SIZE = 50;
 
 function buildEmailUrl(provider: string, messageId: string): string {
   if (provider === 'gmail') {
@@ -55,14 +54,20 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
   const allEmails: NormalizedEmail[] = [];
 
   try {
-    allEmails.push(...await fetchGmailEmails(userId, since));
+    const gmailEmails = await fetchGmailEmails(userId, since);
+    console.log(`[emailScanner] Gmail returned ${gmailEmails.length} emails`);
+    allEmails.push(...gmailEmails);
   } catch (err) {
+    console.error('[emailScanner] Gmail fetch error:', err);
     result.errors.push(`Gmail: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   try {
-    allEmails.push(...await fetchOutlookEmails(userId, since));
+    const outlookEmails = await fetchOutlookEmails(userId, since);
+    console.log(`[emailScanner] Outlook returned ${outlookEmails.length} emails`);
+    allEmails.push(...outlookEmails);
   } catch (err) {
+    console.error('[emailScanner] Outlook fetch error:', err);
     result.errors.push(`Outlook: ${err instanceof Error ? err.message : String(err)}`);
   }
 
@@ -74,20 +79,21 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
     return true;
   });
 
+  // Sort oldest-first so LLM processes emails in chronological order
+  deduped.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
+
   result.emailsScanned = deduped.length;
 
   // 4. Pre-filter + domain match
-  const matched: Array<{ email: NormalizedEmail; app: ApplicationMatch }> = [];
+  const matched: Array<{ email: NormalizedEmail; candidates: ApplicationMatch[] }> = [];
   const unmatched: NormalizedEmail[] = [];
 
   for (const email of deduped) {
     const candidates = matchEmailToApplications(email, domainMap);
+    const activeCandidates = candidates.filter((c) => !TERMINAL_STATUSES.includes(c.status as any));
 
-    if (candidates.length > 0) {
-      const activeCandidate = candidates.find((c) => !TERMINAL_STATUSES.includes(c.status as any));
-      if (activeCandidate) {
-        matched.push({ email, app: activeCandidate });
-      }
+    if (activeCandidates.length > 0) {
+      matched.push({ email, candidates: activeCandidates });
     } else if (!isObviouslyNotJobRelated(email)) {
       unmatched.push(email);
     }
@@ -98,60 +104,85 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
 
   const bpClient = createBotpressClient();
 
-  // 5. Process matched emails in batches — classify via Botpress LLM
-  for (let i = 0; i < matched.length; i += BATCH_SIZE) {
-    const batch = matched.slice(i, i + BATCH_SIZE);
+  // 5. Group matched emails by company, merging all candidates across emails (Bug 3 fix)
+  const companyGroups = new Map<string, { candidates: ApplicationMatch[]; emails: NormalizedEmail[] }>();
+
+  for (const { email, candidates } of matched) {
+    const companyKey = candidates[0].companyName.toLowerCase();
+    const existing = companyGroups.get(companyKey);
+    if (existing) {
+      existing.emails.push(email);
+      // Merge candidates from all emails, dedup by id
+      for (const c of candidates) {
+        if (!existing.candidates.some((ec) => ec.id === c.id)) {
+          existing.candidates.push(c);
+        }
+      }
+    } else {
+      companyGroups.set(companyKey, { candidates: [...candidates], emails: [email] });
+    }
+  }
+
+  // Collect UNCLEAR emails from classify to re-route to triage (Bug 1 fix)
+  const unclearFromClassify: NormalizedEmail[] = [];
+
+  for (const [, group] of companyGroups) {
+    const { candidates, emails } = group;
+    const companyName = candidates[0].companyName;
 
     try {
+      console.log(`[classify] Processing ${emails.length} emails for ${companyName} (${candidates.length} roles: ${candidates.map((c) => c.roleTitle).join(', ')})`);
+
       const { output } = await bpClient.callAction({
         type: 'classifyEmails',
         input: {
-          emails: batch.map((m) => ({
-            from: m.email.from,
-            subject: m.email.subject,
-            bodySnippet: m.email.bodySnippet,
-            companyName: m.app.companyName,
+          companyName,
+          candidateRoles: candidates.map((c) => ({
+            roleTitle: c.roleTitle,
+            currentStatus: c.status,
+          })),
+          emails: emails.map((e) => ({
+            from: e.from,
+            subject: e.subject,
+            bodySnippet: e.bodySnippet,
           })),
         },
       });
 
       const classifications = (output as any).results as Array<{
-        category: string; confidence: number; reason: string;
+        category: string; confidence: number; reason: string; matchedRoleIndex: number;
       }>;
 
       // Apply classification results to DB
-      for (let j = 0; j < batch.length; j++) {
-        const { email, app } = batch[j];
+      for (let j = 0; j < emails.length; j++) {
+        const email = emails[j];
         const classification = classifications[j];
         if (!classification) continue;
 
         const category = classification.category as ClassificationCategory;
-        if (!CLASSIFICATION_CATEGORIES.includes(category)) continue;
+        const roleIdx = Math.max(0, Math.min(classification.matchedRoleIndex ?? 0, candidates.length - 1));
+        const app = candidates[roleIdx];
 
-        const targetStatus = CLASSIFICATION_TO_STATUS[category];
-        const threshold = category === 'REJECTION'
+        // Log every classification decision
+        console.log(`[classify] "${email.subject}" → ${category} (${classification.confidence.toFixed(2)}) | role[${roleIdx}]: "${app.roleTitle}" | ${classification.reason}`);
+
+        if (!CLASSIFICATION_CATEGORIES.includes(category) || category === 'UNCLEAR') {
+          // Bug 1 fix: re-route UNCLEAR emails to triage so they can create new applications
+          // (e.g., email about a role not in candidateRoles)
+          unclearFromClassify.push(email);
+          console.log(`[classify]   ↳ RE-ROUTED to triage (unclear — may be a new role)`);
+          continue;
+        }
+
+        // Category IS the target status (no mapping needed)
+        const targetStatus = category;
+        const threshold = category === 'REJECTED'
           ? CONFIDENCE_THRESHOLDS.REJECTED
           : CONFIDENCE_THRESHOLDS.default;
 
-        if (classification.confidence >= threshold && targetStatus && isForwardTransition(app.status, targetStatus)) {
-          await prisma.application.update({
-            where: { id: app.id },
-            data: { status: targetStatus, lastUpdatedAt: new Date() },
-          });
-
-          await prisma.statusHistory.create({
-            data: {
-              applicationId: app.id,
-              fromStatus: app.status,
-              toStatus: targetStatus,
-              trigger: 'email_auto',
-              triggerDetail: `${category} (${classification.confidence.toFixed(2)}): ${email.subject}`,
-            },
-          });
-
-          result.statusUpdates++;
-          console.log(`[emailScanner] Updated ${app.companyName}: ${app.status} → ${targetStatus}`);
-        } else if (category !== 'UNCLEAR' || classification.confidence > 0) {
+        // Skip if below confidence threshold
+        if (classification.confidence < threshold) {
+          console.log(`[classify]   ↳ FLAGGED (confidence ${classification.confidence.toFixed(2)} < threshold ${threshold})`);
           await prisma.nudge.create({
             data: {
               applicationId: app.id,
@@ -160,16 +191,48 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
             },
           });
           result.flaggedForReview++;
+          continue;
         }
+
+        // Skip if not a forward transition (same stage or backward = already handled)
+        if (!isForwardTransition(app.status, targetStatus)) {
+          console.log(`[classify]   ↳ SKIPPED (not forward: ${app.roleTitle} is already at ${app.status}, target was ${targetStatus})`);
+          continue;
+        }
+
+        await prisma.application.update({
+          where: { id: app.id },
+          data: { status: targetStatus, lastUpdatedAt: new Date() },
+        });
+
+        await prisma.statusHistory.create({
+          data: {
+            applicationId: app.id,
+            fromStatus: app.status,
+            toStatus: targetStatus,
+            trigger: 'email_auto',
+            triggerDetail: `${category} (${classification.confidence.toFixed(2)}): ${email.subject}`,
+          },
+        });
+
+        result.statusUpdates++;
+        console.log(`[classify]   ↳ UPDATED ${companyName} — ${app.roleTitle}: ${app.status} → ${targetStatus}`);
       }
     } catch (err) {
-      result.errors.push(`Classify batch: ${err instanceof Error ? err.message : String(err)}`);
+      console.error(`[emailScanner] classifyEmails failed for ${companyName}:`, err);
+      result.errors.push(`Classify ${companyName}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
+  // Bug 1 fix: append UNCLEAR emails from classify to unmatched for triage
+  if (unclearFromClassify.length > 0) {
+    console.log(`[emailScanner] Re-routing ${unclearFromClassify.length} unclear emails from classify to triage`);
+    unmatched.push(...unclearFromClassify);
+  }
+
   // 6. Process unmatched emails in batches — triage via Botpress LLM
-  for (let i = 0; i < unmatched.length; i += BATCH_SIZE) {
-    const batch = unmatched.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < unmatched.length; i += TRIAGE_BATCH_SIZE) {
+    const batch = unmatched.slice(i, i + TRIAGE_BATCH_SIZE);
 
     try {
       const { output } = await bpClient.callAction({
@@ -192,10 +255,30 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
       for (let j = 0; j < batch.length; j++) {
         const email = batch[j];
         const triage = triageResults[j];
-        if (!triage || !triage.isJobRelated || !triage.companyName) continue;
 
-        const roleTitle = triage.roleTitle || 'Unknown Role';
+        if (!triage) continue;
+
+        // Log every triage decision
+        if (!triage.isJobRelated) {
+          console.log(`[triage] "${email.subject}" → NOT JOB RELATED | ${triage.reason}`);
+          continue;
+        }
+
+        if (!triage.companyName) {
+          console.log(`[triage] "${email.subject}" → JOB RELATED but no company extracted | ${triage.reason}`);
+          continue;
+        }
+
+        const roleTitle = triage.roleTitle;
         const companyName = triage.companyName;
+
+        console.log(`[triage] "${email.subject}" → ${triage.category} (${triage.confidence.toFixed(2)}) | ${companyName} — ${roleTitle || '(no role)'} | ${triage.reason}`);
+
+        // Bug 2 fix: skip if no meaningful role title was extracted
+        if (!roleTitle || roleTitle === 'Unknown Role') {
+          console.log(`[triage]   ↳ SKIPPED (no role title extracted — cannot create meaningful ticket)`);
+          continue;
+        }
 
         // Duplicate check
         const existingApps = await prisma.application.findMany({
@@ -207,11 +290,11 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         });
 
         if (existingApps.some((a) => fuzzyMatchRoleTitle(roleTitle, a.roleTitle))) {
-          console.log(`[emailScanner] Skipping duplicate: ${companyName} — ${roleTitle}`);
+          console.log(`[triage]   ↳ SKIPPED (duplicate — "${roleTitle}" already exists at ${companyName})`);
           continue;
         }
 
-        const targetStatus = CLASSIFICATION_TO_STATUS[triage.category as ClassificationCategory] ?? 'APPLIED';
+        const targetStatus = triage.category !== 'UNCLEAR' ? triage.category : 'APPLIED';
         const emailUrl = buildEmailUrl(email.provider, email.messageId);
 
         await prisma.application.create({
@@ -239,7 +322,7 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         });
 
         result.newApplications++;
-        console.log(`[emailScanner] New application: ${companyName} — ${roleTitle}`);
+        console.log(`[triage]   ↳ CREATED ${companyName} — ${roleTitle} (${targetStatus})`);
       }
     } catch (err) {
       result.errors.push(`Triage batch: ${err instanceof Error ? err.message : String(err)}`);

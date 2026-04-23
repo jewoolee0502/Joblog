@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db.js';
 import { toApplicationDTO } from '../lib/mappers.js';
 import { JD_MAX_CHARS } from '../lib/constants.js';
+import { createBotpressClient } from '../lib/botpress.js';
 
 const router = Router();
 
@@ -37,7 +38,6 @@ router.post('/from-extension', async (req, res, next) => {
     const pageText = data.pageText.substring(0, JD_MAX_CHARS);
 
     // Call Botpress to extract structured fields from page text
-    const { createBotpressClient } = await import('../lib/botpress.js');
     const bpClient = createBotpressClient();
 
     let output: Record<string, unknown>;

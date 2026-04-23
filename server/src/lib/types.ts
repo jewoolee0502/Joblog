@@ -26,6 +26,10 @@ export interface TriageResult {
   reason: string;
   companyName: string | null;
   roleTitle: string | null;
+  location: string | null;
+  contactName: string | null;
+  jobDescription: string | null;
+  isRemote: boolean;
 }
 
 /** A matched application from domain lookup. */

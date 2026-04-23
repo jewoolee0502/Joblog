@@ -22,32 +22,26 @@ export const TERMINAL_STATUSES: ApplicationStatus[] = [
   'GHOSTED',
 ];
 
-/** Email classification categories produced by the Claude classifier. */
+/** Email classification categories — unified with kanban statuses (no mapping needed). */
 export const CLASSIFICATION_CATEGORIES = [
-  'ACKNOWLEDGEMENT',
-  'SCREENING_REQUEST',
-  'INTERVIEW_INVITE',
-  'REJECTION',
+  'APPLIED',
+  'SCREENING',
+  'INTERVIEW',
+  'REJECTED',
   'OFFER',
   'UNCLEAR',
 ] as const;
 
 export type ClassificationCategory = (typeof CLASSIFICATION_CATEGORIES)[number];
 
-/** Maps a classification category to the target application status. */
-export const CLASSIFICATION_TO_STATUS: Record<string, ApplicationStatus> = {
-  ACKNOWLEDGEMENT: 'APPLIED',
-  SCREENING_REQUEST: 'SCREENING',
-  INTERVIEW_INVITE: 'INTERVIEW',
-  REJECTION: 'REJECTED',
-  OFFER: 'OFFER',
-};
-
 /** Minimum confidence required to auto-advance a stage. */
 export const CONFIDENCE_THRESHOLDS = {
   default: 0.75,
   REJECTED: 0.85,
 } as const;
+
+/** Max emails per LLM batch for triage processing. */
+export const TRIAGE_BATCH_SIZE = 50;
 
 /** Max chars of email body sent to the classifier (PRD §4.3). */
 export const EMAIL_BODY_MAX_CHARS = 500;
