@@ -1,27 +1,20 @@
-import { defineConfig, z } from '@botpress/runtime';
+import { defineConfig } from '@botpress/runtime';
 
 export default defineConfig({
   name: 'JoblogBot',
-  description: 'Scans Gmail/Outlook inboxes daily, classifies job-related emails, and updates the Kanban board',
+  description: 'LLM gateway for Joblog — classifies emails, triages inbox, and parses job descriptions',
 
   dependencies: {
     integrations: {
       anthropic: {
-        version: 'anthropic@16.0.0',
+        version: 'anthropic@17.0.0',
         enabled: true,
       },
     },
   },
 
   defaultModels: {
-    autonomous: 'anthropic:claude-3-5-sonnet',
-    zai: 'anthropic:claude-3-5-sonnet',
-  },
-
-  bot: {
-    state: z.object({
-      lastScanTime: z.string().optional(),
-      totalScans: z.number().default(0),
-    }),
+    autonomous: 'best',
+    zai: 'best',
   },
 });
