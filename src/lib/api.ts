@@ -87,6 +87,18 @@ export interface ConnectionStatus {
   outlook: { connected: boolean; lastPolledAt: string | null };
 }
 
+export interface ScanStatusData {
+  status: 'running' | 'completed' | 'failed';
+  result?: {
+    emailsScanned: number;
+    statusUpdates: number;
+    newApplications: number;
+    flaggedForReview: number;
+    errors: string[];
+  };
+  error?: string;
+}
+
 export const authApi = {
   getConnections: () =>
     request<ConnectionStatus>('/api/auth/connections'),
@@ -99,4 +111,6 @@ export const authApi = {
       `/api/auth/trigger-scan${months ? `?months=${months}` : ''}`,
       { method: 'POST' },
     ),
+  getScanStatus: () =>
+    request<{ data: ScanStatusData | null }>('/api/auth/scan-status'),
 };

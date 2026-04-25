@@ -6,6 +6,7 @@ import { ReviewQueue } from '@/components/ReviewQueue';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SummaryBar } from '@/components/SummaryBar';
 import { useApplicationStore } from '@/store/applicationStore';
+import { authApi } from '@/lib/api';
 import { STATUS_LABELS, type ApplicationStatus } from '@/types';
 
 type DialogState =
@@ -24,10 +25,30 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewCount, setReviewCount] = useState(0);
+  const [deepScanActive, setDeepScanActive] = useState(false);
   const shownAutoToasts = useRef(new Set<string>());
 
   useEffect(() => {
     loadApplications();
+    // Check for in-progress or already-finished deep scan (e.g. after page refresh)
+    authApi.getScanStatus().then((resp) => {
+      const s = resp.data;
+      if (!s) return;
+      if (s.status === 'running') {
+        setDeepScanActive(true);
+      } else if (s.status === 'completed' && s.result) {
+        const r = s.result;
+        const parts = [
+          `${r.emailsScanned} emails scanned`,
+          r.statusUpdates > 0 ? `${r.statusUpdates} status updates` : null,
+          r.newApplications > 0 ? `${r.newApplications} new applications` : null,
+          r.flaggedForReview > 0 ? `${r.flaggedForReview} flagged for review` : null,
+        ].filter(Boolean);
+        toast.success(`Deep scan complete: ${parts.join(', ')}`);
+      } else if (s.status === 'failed') {
+        toast.error(`Deep scan failed: ${s.error ?? 'Unknown error'}`);
+      }
+    }).catch(() => {});
   }, [loadApplications]);
 
   // Show undo toasts for recent auto-transitions (last 24h)
@@ -56,6 +77,44 @@ export default function App() {
       }
     }
   }, [isLoaded, applications, undoApplication]);
+
+  // Poll for deep scan completion
+  useEffect(() => {
+    if (!deepScanActive) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const resp = await authApi.getScanStatus();
+        const scanStatus = resp.data;
+
+        if (!scanStatus) {
+          setDeepScanActive(false);
+          return;
+        }
+        if (scanStatus.status === 'running') return;
+
+        setDeepScanActive(false);
+
+        if (scanStatus.status === 'completed' && scanStatus.result) {
+          const r = scanStatus.result;
+          const parts = [
+            `${r.emailsScanned} emails scanned`,
+            r.statusUpdates > 0 ? `${r.statusUpdates} status updates` : null,
+            r.newApplications > 0 ? `${r.newApplications} new applications` : null,
+            r.flaggedForReview > 0 ? `${r.flaggedForReview} flagged for review` : null,
+          ].filter(Boolean);
+          toast.success(`Deep scan complete: ${parts.join(', ')}`);
+          loadApplications();
+        } else {
+          toast.error(`Deep scan failed: ${scanStatus.error ?? 'Unknown error'}`);
+        }
+      } catch {
+        // Network error — retry next interval
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [deepScanActive, loadApplications]);
 
   const openCreate = (status: ApplicationStatus = 'SAVED') =>
     setDialog({ open: true, mode: 'create', initialStatus: status });
@@ -158,7 +217,7 @@ export default function App() {
         onViewApplication={openEdit}
         onCountChange={setReviewCount}
       />
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onDeepScanStarted={() => setDeepScanActive(true)} />
       <Toaster position="bottom-right" richColors />
     </div>
   );
