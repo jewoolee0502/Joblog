@@ -3,6 +3,7 @@ import { google } from 'googleapis';
 import { ConfidentialClientApplication } from '@azure/msal-node';
 import { prisma } from '../db.js';
 import { encrypt, decrypt } from '../lib/crypto.js';
+import { setScanStatus, getScanStatus, deleteScanStatus } from '../lib/scanStatus.js';
 
 const router = Router();
 
@@ -216,9 +217,30 @@ router.post('/trigger-scan', async (req, res, next) => {
 
     // Deep scan: fire-and-forget (runs in background)
     if (isDeepScan) {
-      runEmailScan(req.userId, sinceOverride).catch((err) =>
-        console.error('[trigger-scan] Background deep scan failed:', err),
-      );
+      setScanStatus(req.userId, { status: 'running', startedAt: Date.now() });
+
+      runEmailScan(req.userId, sinceOverride)
+        .then((scanResult) => {
+          setScanStatus(req.userId, {
+            status: 'completed',
+            result: {
+              emailsScanned: scanResult.emailsScanned,
+              statusUpdates: scanResult.statusUpdates,
+              newApplications: scanResult.newApplications,
+              flaggedForReview: scanResult.flaggedForReview,
+              errors: scanResult.errors,
+            },
+            startedAt: Date.now(),
+          });
+        })
+        .catch((err) => {
+          console.error('[trigger-scan] Background deep scan failed:', err);
+          setScanStatus(req.userId, {
+            status: 'failed',
+            error: err instanceof Error ? err.message : String(err),
+            startedAt: Date.now(),
+          });
+        });
 
       res.json({
         emailsScanned: 0,
@@ -247,6 +269,18 @@ router.post('/trigger-scan', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+router.get('/scan-status', (req, res) => {
+  const status = getScanStatus(req.userId);
+  if (!status) {
+    res.json({ data: null });
+    return;
+  }
+  if (status.status !== 'running') {
+    deleteScanStatus(req.userId);
+  }
+  res.json({ data: status });
 });
 
 export default router;

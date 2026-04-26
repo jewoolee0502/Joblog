@@ -7,9 +7,10 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 interface SettingsPanelProps {
   open: boolean;
   onClose: () => void;
+  onDeepScanStarted?: () => void;
 }
 
-export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, onDeepScanStarted }: SettingsPanelProps) {
   const [connections, setConnections] = useState<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -33,6 +34,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
       if (result.background) {
         toast.success(result.message ?? 'Deep scan started in background. Your Kanban board will update automatically.');
+        onDeepScanStarted?.();
       } else {
         const parts = [
           `${result.emailsScanned} emails scanned`,
