@@ -51,19 +51,22 @@ export default function App() {
     }).catch(() => {});
   }, [loadApplications]);
 
-  // Show undo toasts for recent auto-transitions (last 24h)
+  // Show undo toasts for auto-transitions the user hasn't seen yet
   useEffect(() => {
     if (!isLoaded) return;
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const lastSeen = parseInt(localStorage.getItem('joblog:lastSeenAutoToast') ?? '0', 10);
+    let latestChange = lastSeen;
 
     for (const app of applications) {
       for (const entry of app.history) {
+        const changedMs = new Date(entry.changedAt).getTime();
         if (
           entry.trigger === 'email_auto' &&
-          new Date(entry.changedAt).getTime() > cutoff &&
+          changedMs > lastSeen &&
           !shownAutoToasts.current.has(entry.id)
         ) {
           shownAutoToasts.current.add(entry.id);
+          if (changedMs > latestChange) latestChange = changedMs;
           const label = STATUS_LABELS[entry.toStatus] ?? entry.toStatus;
           toast(`${app.companyName} moved to ${label}`, {
             description: 'Auto-detected from email',
@@ -75,6 +78,10 @@ export default function App() {
           });
         }
       }
+    }
+
+    if (latestChange > lastSeen) {
+      localStorage.setItem('joblog:lastSeenAutoToast', String(latestChange));
     }
   }, [isLoaded, applications, undoApplication]);
 
