@@ -183,6 +183,20 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         // Skip if below confidence threshold
         if (classification.confidence < threshold) {
           console.log(`[classify]   ↳ FLAGGED (confidence ${classification.confidence.toFixed(2)} < threshold ${threshold})`);
+
+          const existing = await prisma.nudge.findFirst({
+            where: {
+              applicationId: app.id,
+              nudgeType: 'email_review',
+              isDismissed: false,
+              message: { contains: `"${email.subject}"` },
+            },
+          });
+          if (existing) {
+            console.log(`[classify]   ↳ SKIPPED duplicate nudge for "${email.subject}"`);
+            continue;
+          }
+
           await prisma.nudge.create({
             data: {
               applicationId: app.id,
