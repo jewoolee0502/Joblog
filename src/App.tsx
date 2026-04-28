@@ -223,6 +223,7 @@ export default function App() {
         onClose={() => setReviewOpen(false)}
         onViewApplication={openEdit}
         onCountChange={setReviewCount}
+        refreshKey={applications.reduce((acc, a) => acc + new Date(a.lastUpdatedAt).getTime(), 0)}
       />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onDeepScanStarted={() => setDeepScanActive(true)} />
       <Toaster position="bottom-right" richColors />

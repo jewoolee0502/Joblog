@@ -180,6 +180,15 @@ router.patch('/:id', async (req, res, next) => {
       include: { history: { orderBy: { changedAt: 'asc' } } },
     });
 
+    await prisma.nudge.updateMany({
+      where: {
+        applicationId: existing.id,
+        nudgeType: 'email_review',
+        isDismissed: false,
+      },
+      data: { isDismissed: true },
+    });
+
     res.json(toApplicationDTO(updated));
   } catch (err) {
     next(err);

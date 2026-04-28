@@ -7,9 +7,10 @@ interface ReviewQueueProps {
   onClose: () => void;
   onViewApplication: (id: string) => void;
   onCountChange: (count: number) => void;
+  refreshKey?: number;
 }
 
-export function ReviewQueue({ open, onClose, onViewApplication, onCountChange }: ReviewQueueProps) {
+export function ReviewQueue({ open, onClose, onViewApplication, onCountChange, refreshKey }: ReviewQueueProps) {
   const [nudges, setNudges] = useState<Nudge[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export function ReviewQueue({ open, onClose, onViewApplication, onCountChange }:
 
   useEffect(() => {
     loadNudges();
-  }, [open]);
+  }, [open, refreshKey]);
 
   const handleDismiss = async (id: string) => {
     try {
