@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { nudgesApi } from '@/lib/api';
+import { useApplicationStore } from '@/store/applicationStore';
 import type { Nudge } from '@/types';
 
 interface ReviewQueueProps {
@@ -42,6 +43,7 @@ export function ReviewQueue({ open, onClose, onViewApplication, onCountChange, r
         onCountChange(updated.length);
         return updated;
       });
+      useApplicationStore.getState().loadNeedsReview();
     } catch (err: any) {
       setError(err.message);
     }
