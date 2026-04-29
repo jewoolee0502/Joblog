@@ -21,6 +21,7 @@ export default function App() {
   const error = useApplicationStore((s) => s.error);
   const loadApplications = useApplicationStore((s) => s.loadApplications);
   const loadNeedsReview = useApplicationStore((s) => s.loadNeedsReview);
+  const needsReviewIds = useApplicationStore((s) => s.needsReviewIds);
   const undoApplication = useApplicationStore((s) => s.undoApplication);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -226,7 +227,7 @@ export default function App() {
         onClose={() => setReviewOpen(false)}
         onViewApplication={openEdit}
         onCountChange={setReviewCount}
-        refreshKey={applications.reduce((acc, a) => acc + new Date(a.lastUpdatedAt).getTime(), 0)}
+        refreshKey={needsReviewIds.size}
       />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onDeepScanStarted={() => setDeepScanActive(true)} />
       <Toaster position="bottom-right" richColors />

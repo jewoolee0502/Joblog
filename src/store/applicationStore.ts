@@ -96,6 +96,7 @@ export const useApplicationStore = create<ApplicationStoreState>()((set, get) =>
     set({ applications: previous.filter((a) => a.id !== id) });
     try {
       await applicationsApi.remove(id);
+      get().loadNeedsReview();
     } catch (err) {
       set({
         applications: previous,
