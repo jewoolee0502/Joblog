@@ -147,7 +147,7 @@ function NudgeCard({
             From: {sender}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+            <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-200">
               {category}
             </span>
             <span className="text-xs text-slate-400">
