@@ -4,6 +4,7 @@ import type { Application, ApplicationStatus } from '@/types';
 import { STATUS_LABELS } from '@/types';
 import {
   applicationsApi,
+  nudgesApi,
   type CreateApplicationPayload,
   type PatchApplicationPayload,
 } from '@/lib/api';
@@ -13,8 +14,10 @@ interface ApplicationStoreState {
   isLoading: boolean;
   isLoaded: boolean;
   error: string | null;
+  needsReviewIds: Set<string>;
 
   loadApplications: () => Promise<void>;
+  loadNeedsReview: () => Promise<void>;
   createApplication: (input: CreateApplicationPayload) => Promise<Application | null>;
   updateApplication: (id: string, patch: PatchApplicationPayload) => Promise<void>;
   deleteApplication: (id: string) => Promise<void>;
@@ -32,6 +35,17 @@ export const useApplicationStore = create<ApplicationStoreState>()((set, get) =>
   isLoading: false,
   isLoaded: false,
   error: null,
+  needsReviewIds: new Set(),
+
+  loadNeedsReview: async () => {
+    try {
+      const nudges = await nudgesApi.list();
+      const ids = new Set(nudges.filter((n) => n.nudgeType === 'email_review').map((n) => n.applicationId));
+      set({ needsReviewIds: ids });
+    } catch {
+      // Non-critical — don't block UI
+    }
+  },
 
   loadApplications: async () => {
     set({ isLoading: true, error: null });
@@ -68,6 +82,7 @@ export const useApplicationStore = create<ApplicationStoreState>()((set, get) =>
     try {
       const updated = await applicationsApi.patch(id, patch);
       set({ applications: get().applications.map((a) => (a.id === id ? updated : a)) });
+      get().loadNeedsReview();
     } catch (err) {
       set({
         applications: previous,
@@ -81,6 +96,7 @@ export const useApplicationStore = create<ApplicationStoreState>()((set, get) =>
     set({ applications: previous.filter((a) => a.id !== id) });
     try {
       await applicationsApi.remove(id);
+      get().loadNeedsReview();
     } catch (err) {
       set({
         applications: previous,

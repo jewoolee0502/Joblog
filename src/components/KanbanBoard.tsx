@@ -22,6 +22,7 @@ interface Props {
 
 export function KanbanBoard({ onCardClick, onAddClick }: Props) {
   const applications = useApplicationStore((s) => s.applications);
+  const needsReviewIds = useApplicationStore((s) => s.needsReviewIds);
   const moveApplication = useApplicationStore((s) => s.moveApplication);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -83,6 +84,7 @@ export function KanbanBoard({ onCardClick, onAddClick }: Props) {
             key={status}
             status={status}
             applications={grouped[status]}
+            needsReviewIds={needsReviewIds}
             onCardClick={onCardClick}
             onAddClick={onAddClick}
           />

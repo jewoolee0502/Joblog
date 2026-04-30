@@ -9,11 +9,12 @@ import { statusAccent } from '@/lib/utils';
 interface Props {
   status: ApplicationStatus;
   applications: Application[];
+  needsReviewIds: Set<string>;
   onCardClick: (id: string) => void;
   onAddClick: (status: ApplicationStatus) => void;
 }
 
-export function KanbanColumn({ status, applications, onCardClick, onAddClick }: Props) {
+export function KanbanColumn({ status, applications, needsReviewIds, onCardClick, onAddClick }: Props) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status}`,
     data: { type: 'column', status },
@@ -54,7 +55,7 @@ export function KanbanColumn({ status, applications, onCardClick, onAddClick }: 
           strategy={verticalListSortingStrategy}
         >
           {applications.map((app) => (
-            <ApplicationCard key={app.id} application={app} onClick={onCardClick} />
+            <ApplicationCard key={app.id} application={app} needsReview={needsReviewIds.has(app.id)} onClick={onCardClick} />
           ))}
         </SortableContext>
 

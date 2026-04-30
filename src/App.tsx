@@ -20,6 +20,8 @@ export default function App() {
   const isLoaded = useApplicationStore((s) => s.isLoaded);
   const error = useApplicationStore((s) => s.error);
   const loadApplications = useApplicationStore((s) => s.loadApplications);
+  const loadNeedsReview = useApplicationStore((s) => s.loadNeedsReview);
+  const needsReviewIds = useApplicationStore((s) => s.needsReviewIds);
   const undoApplication = useApplicationStore((s) => s.undoApplication);
   const [dialog, setDialog] = useState<DialogState>({ open: false });
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -30,6 +32,7 @@ export default function App() {
 
   useEffect(() => {
     loadApplications();
+    loadNeedsReview();
     // Check for in-progress or already-finished deep scan (e.g. after page refresh)
     authApi.getScanStatus().then((resp) => {
       const s = resp.data;
@@ -112,6 +115,7 @@ export default function App() {
           ].filter(Boolean);
           toast.success(`Deep scan complete: ${parts.join(', ')}`);
           loadApplications();
+          loadNeedsReview();
         } else {
           toast.error(`Deep scan failed: ${scanStatus.error ?? 'Unknown error'}`);
         }
@@ -223,6 +227,7 @@ export default function App() {
         onClose={() => setReviewOpen(false)}
         onViewApplication={openEdit}
         onCountChange={setReviewCount}
+        refreshKey={needsReviewIds.size}
       />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onDeepScanStarted={() => setDeepScanActive(true)} />
       <Toaster position="bottom-right" richColors />

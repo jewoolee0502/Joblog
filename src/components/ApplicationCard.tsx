@@ -6,10 +6,11 @@ import { daysSince, isStale } from '@/lib/utils';
 
 interface Props {
   application: Application;
+  needsReview?: boolean;
   onClick: (id: string) => void;
 }
 
-export function ApplicationCard({ application, onClick }: Props) {
+export function ApplicationCard({ application, needsReview, onClick }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: application.id,
     data: { type: 'application', status: application.status },
@@ -37,7 +38,11 @@ export function ApplicationCard({ application, onClick }: Props) {
       }}
       className={clsx(
         'group cursor-grab select-none rounded-lg border bg-white p-3 shadow-sm transition hover:shadow-md active:cursor-grabbing',
-        stale ? 'border-amber-400 ring-1 ring-amber-200' : 'border-slate-200',
+        needsReview
+          ? 'border-red-400 ring-1 ring-red-200'
+          : stale
+            ? 'border-amber-400 ring-1 ring-amber-200'
+            : 'border-slate-200',
         isDragging && 'opacity-40',
       )}
     >
@@ -48,14 +53,24 @@ export function ApplicationCard({ application, onClick }: Props) {
           </div>
           <div className="truncate text-xs text-slate-600">{application.roleTitle}</div>
         </div>
-        {stale && (
-          <span
-            title="Stale — needs follow-up"
-            className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-          >
-            ⚠
-          </span>
-        )}
+        <div className="flex items-center gap-1">
+          {needsReview && (
+            <span
+              title="Needs review"
+              className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-800"
+            >
+              ?
+            </span>
+          )}
+          {stale && (
+            <span
+              title="Stale — needs follow-up"
+              className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+            >
+              ⚠
+            </span>
+          )}
+        </div>
       </div>
 
       {application.tags.length > 0 && (

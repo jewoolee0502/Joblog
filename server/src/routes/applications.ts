@@ -1,22 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db.js';
+import { STAGE_ORDER } from '../lib/constants.js';
 import { toApplicationDTO } from '../lib/mappers.js';
 
 const router = Router();
-
-const STATUSES = [
-  'SAVED',
-  'APPLIED',
-  'SCREENING',
-  'INTERVIEW',
-  'FINAL_ROUND',
-  'OFFER',
-  'ACCEPTED',
-  'REJECTED',
-  'WITHDRAWN',
-  'GHOSTED',
-] as const;
 
 const SOURCES = [
   'linkedin',
@@ -32,7 +20,7 @@ const createSchema = z.object({
   roleTitle: z.string().min(1),
   jobUrl: z.string().url().optional().or(z.literal('').transform(() => undefined)),
   jdSnapshot: z.string().optional(),
-  status: z.enum(STATUSES).default('SAVED'),
+  status: z.enum(STAGE_ORDER).default('SAVED'),
   source: z.enum(SOURCES).default('other'),
   contactName: z.string().optional(),
   contactEmail: z.string().email().optional().or(z.literal('').transform(() => undefined)),
@@ -45,7 +33,7 @@ const createSchema = z.object({
 });
 
 const patchSchema = createSchema.partial().extend({
-  status: z.enum(STATUSES).optional(),
+  status: z.enum(STAGE_ORDER).optional(),
   trigger: z.enum(['manual', 'email_auto', 'nudge']).optional(),
   triggerDetail: z.string().optional(),
 });
@@ -178,6 +166,15 @@ router.patch('/:id', async (req, res, next) => {
           : {}),
       },
       include: { history: { orderBy: { changedAt: 'asc' } } },
+    });
+
+    await prisma.nudge.updateMany({
+      where: {
+        applicationId: existing.id,
+        nudgeType: 'email_review',
+        isDismissed: false,
+      },
+      data: { isDismissed: true },
     });
 
     res.json(toApplicationDTO(updated));

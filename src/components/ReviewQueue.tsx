@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { nudgesApi } from '@/lib/api';
+import { useApplicationStore } from '@/store/applicationStore';
 import type { Nudge } from '@/types';
 
 interface ReviewQueueProps {
@@ -7,9 +8,10 @@ interface ReviewQueueProps {
   onClose: () => void;
   onViewApplication: (id: string) => void;
   onCountChange: (count: number) => void;
+  refreshKey?: number;
 }
 
-export function ReviewQueue({ open, onClose, onViewApplication, onCountChange }: ReviewQueueProps) {
+export function ReviewQueue({ open, onClose, onViewApplication, onCountChange, refreshKey }: ReviewQueueProps) {
   const [nudges, setNudges] = useState<Nudge[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export function ReviewQueue({ open, onClose, onViewApplication, onCountChange }:
 
   useEffect(() => {
     loadNudges();
-  }, [open]);
+  }, [open, refreshKey]);
 
   const handleDismiss = async (id: string) => {
     try {
@@ -41,6 +43,7 @@ export function ReviewQueue({ open, onClose, onViewApplication, onCountChange }:
         onCountChange(updated.length);
         return updated;
       });
+      useApplicationStore.getState().loadNeedsReview();
     } catch (err: any) {
       setError(err.message);
     }
@@ -144,7 +147,7 @@ function NudgeCard({
             From: {sender}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+            <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-200">
               {category}
             </span>
             <span className="text-xs text-slate-400">
