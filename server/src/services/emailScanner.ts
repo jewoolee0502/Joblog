@@ -167,7 +167,7 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         console.log(`[classify] "${email.subject}" → ${category} (${classification.confidence.toFixed(2)}) | role[${roleIdx}]: "${app.roleTitle}" | ${classification.reason}`);
 
         if (!CLASSIFICATION_CATEGORIES.includes(category) || category === 'UNCLEAR') {
-          // Bug 1 fix: re-route UNCLEAR emails to triage so they can create new applications
+          // Re-route UNCLEAR emails to triage so they can create new applications
           // (e.g., email about a role not in candidateRoles)
           unclearFromClassify.push(email);
           console.log(`[classify]   ↳ RE-ROUTED to triage (unclear — may be a new role)`);
@@ -311,7 +311,7 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         const targetStatus = triage.category !== 'UNCLEAR' ? triage.category : 'APPLIED';
         const emailUrl = buildEmailUrl(email.provider, email.messageId);
 
-        await prisma.application.create({
+        const created = await prisma.application.create({
           data: {
             userId,
             companyName,
@@ -337,6 +337,28 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
 
         result.newApplications++;
         console.log(`[triage]   ↳ CREATED ${companyName} — ${roleTitle} (${targetStatus})`);
+
+        if (triage.category === 'UNCLEAR') {
+          const existingNudge = await prisma.nudge.findFirst({
+            where: {
+              applicationId: created.id,
+              nudgeType: 'email_review',
+              isDismissed: false,
+              message: { contains: `"${email.subject}"` },
+            },
+          });
+          if (!existingNudge) {
+            await prisma.nudge.create({
+              data: {
+                applicationId: created.id,
+                nudgeType: 'email_review',
+                message: `Email from ${email.from}: "${email.subject}" — UNCLEAR (${triage.confidence.toFixed(2)}). ${triage.reason}`,
+              },
+            });
+            result.flaggedForReview++;
+            console.log(`[triage]   ↳ FLAGGED for review (unclear)`);
+          }
+        }
       }
     } catch (err) {
       result.errors.push(`Triage batch: ${err instanceof Error ? err.message : String(err)}`);
