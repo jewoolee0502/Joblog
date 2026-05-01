@@ -288,6 +288,13 @@ The app is designed for multi-tenancy from day one (see above). The planned acco
 - Email OAuth tokens are encrypted per-user and stored in the User model
 - All application data, scan history, and nudges are scoped to the authenticated user
 - The daily cron scan (`runFullScan()`) already iterates over all users with connected email accounts
+- Future integration with WhatsApp to enable direct user-agent interaction
+- Users will be able to send job posting links via WhatsApp to automatically add them to “Saved” or “Applied” jobs
+- Natural language queries via WhatsApp (e.g., “How many applications are in interview stage?”, “What did I apply to this week?”)
+- Ability to update job statuses, log notes, and trigger follow-up nudges directly through WhatsApp chat
+- WhatsApp account linkage will be mapped to the authenticated user to maintain strict per-user data isolation
+- Integration will be implemented via the WhatsApp Business API or providers like Twilio
+- All WhatsApp interactions will be securely processed and scoped within the existing multi-tenant architecture
 
 ## Notes
 
