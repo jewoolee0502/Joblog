@@ -126,19 +126,22 @@ router.get('/outlook', async (_req, res, next) => {
 });
 
 /** Step 2 — Microsoft redirects here with ?code=. */
-router.get('/outlook/callback', async (req, res, next) => {
+router.get('/microsoft/callback', async (req, res, next) => {
   try {
     const code = req.query.code as string | undefined;
+    console.log('[outlook] Callback received, code present:', !!code);
     if (!code) {
+      console.log('[outlook] No code in callback, query:', req.query);
       res.redirect(`${WEB_ORIGIN}/settings?outlook=error&reason=no_code`);
       return;
     }
 
-    await getMsalClient().acquireTokenByCode({
+    const tokenResult = await getMsalClient().acquireTokenByCode({
       code,
       scopes: ['Mail.Read', 'offline_access'],
       redirectUri: process.env.MICROSOFT_REDIRECT_URI ?? '',
     });
+    console.log('[outlook] Token acquired for account:', tokenResult?.account?.username);
 
     // MSAL doesn't directly expose the refresh token in acquireTokenByCode result.
     // The token cache stores it internally. We serialize the full cache so we can
@@ -151,8 +154,10 @@ router.get('/outlook/callback', async (req, res, next) => {
       data: { outlookRefreshToken: encryptedCache },
     });
 
+    console.log('[outlook] Connection saved for user', req.userId);
     res.redirect(`${WEB_ORIGIN}/settings?outlook=connected`);
   } catch (err) {
+    console.error('[outlook] Callback error:', err);
     next(err);
   }
 });
