@@ -6,14 +6,15 @@ An AI-powered job application tracker. Personal CRM for high-volume job search �
 
 ## Status
 
-**Week 5 in progress — Architecture refactor, Chrome extension integration, Botpress Zai migration.**
+**Week 6 in progress — Outlook OAuth (Microsoft Graph), school email forwarding, user accounts + deployment.**
 
 - [x] **Week 1** — Vite + React + TS + Tailwind scaffold, kanban with drag-and-drop, CRUD dialog, stale-card highlighting, summary bar
 - [x] **Week 2** — Express + Prisma backend, Postgres on Supabase, REST API, dev-mode auth middleware (Clerk swap-point ready), frontend wired to API with optimistic updates
 - [x] **Week 3** — Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel
 - [x] **Week 4** — Botpress ADK bot, scan now / deep scan workflows, review queue UI
 - [x] **Week 5** — Architecture refactor (Botpress = LLM only, Express = orchestration + DB), Chrome extension JD parsing migrated to email-bot, Zai migration, chronological email processing, per-company batch classification, multi-role matching
-- [ ] Weeks 6–9 — see [roadmap](#roadmap) below
+- [x] **Week 6** — Outlook OAuth (Azure app registration, MSAL), school email forwarding integration
+- [ ] Weeks 7–10 — see [roadmap](#roadmap) below
 
 ## Architecture
 
@@ -53,7 +54,7 @@ An AI-powered job application tracker. Personal CRM for high-volume job search �
 | DB / ORM | PostgreSQL on Supabase + Prisma |
 | Auth | Clerk (dev-mode middleware currently; Clerk integration planned) |
 | LLM Gateway | Botpress ADK bot with Zai (`adk.zai.extract()`) for structured extraction |
-| Email Integration | Gmail + Outlook OAuth (both connected simultaneously) |
+| Email Integration | Gmail + Outlook OAuth (both connected simultaneously); school email via forwarding |
 | Background Jobs | `node-cron` in Express (configurable via `CRON_SCAN_SCHEDULE` env var, default: daily 7 AM EST) |
 | Chrome Extension | Manifest V3, captures page text, sends to Express for JD parsing |
 | Hosting | Vercel (frontend) + Railway (server) + Supabase (DB) + Botpress Cloud (bot) |
@@ -79,7 +80,7 @@ Email scanning is orchestrated by **Express** (`server/src/services/emailScanner
 - **Scheduled** — `node-cron` triggers `runFullScan()` daily at 7 AM EST (configurable)
 
 **Pipeline (same for all triggers):**
-1. Fetch emails from Gmail + Outlook (both providers, deduplicated by messageId)
+1. Fetch emails from Gmail + Outlook (both providers, deduplicated by messageId). School/university emails that block OAuth can be forwarded to a connected account.
 2. **Sort oldest-first** — emails processed in chronological order so the LLM can use earlier emails as context for later ones
 3. Domain-match sender against tracked applications (contact email, job URL domain, fuzzy company name)
 4. Pre-filter obviously non-job emails (regex-based: domain blocklist, subject patterns, sender patterns)
@@ -92,6 +93,20 @@ Email scanning is orchestrated by **Express** (`server/src/services/emailScanner
 11. Same-stage or backward transitions → silently skipped (no nudge, no update)
 
 All automated transitions are reversible — logged to `StatusHistory` with an undo toast (10s).
+
+### School / University Email Integration
+
+Many universities (e.g., McGill) lock down their Microsoft 365 tenants, blocking third-party OAuth app registrations. Direct API access (Microsoft Graph) and local proxies (DavMail) won't work because the tenant admin has restricted which applications can access user mailboxes.
+
+**Solution: Email forwarding to a connected personal account.**
+
+1. In your school's Outlook Web (outlook.office365.com), go to Settings → Mail → Forwarding
+2. Enable forwarding to your personal Gmail or Outlook address (e.g., `yourname@outlook.com`)
+3. Check "Keep a copy of forwarded messages" (recommended)
+4. Connect the personal account to Joblog via the Settings panel (Gmail OAuth or Outlook OAuth)
+5. Forwarded school emails will be scanned alongside your personal emails — the same classification pipeline applies
+
+This approach requires no special permissions from your university IT department.
 
 ### Chrome Extension Flow
 
@@ -131,7 +146,7 @@ npm --prefix joblog-email-bot install
 
 # 2. Configure environment
 cp .env.example .env                # frontend (VITE_API_URL)
-cp server/.env.example server/.env  # backend  (DATABASE_URL, OAuth keys, Botpress keys, etc.)
+cp server/.env.example server/.env  # backend  (DATABASE_URL, Google + Microsoft OAuth keys, Botpress keys, etc.)
 
 # 3. Migrate + seed the database
 cd server
@@ -160,6 +175,12 @@ BOTPRESS_TOKEN=bp_pat_...
 BP_BOT_ID=<dev-bot-id>
 # Production (deployed to Botpress Cloud)
 # BP_BOT_ID=<deployed-bot-id>
+
+# Microsoft OAuth (for Outlook)
+MICROSOFT_CLIENT_ID=<your-azure-app-client-id>
+MICROSOFT_CLIENT_SECRET=<your-azure-app-client-secret>
+MICROSOFT_TENANT_ID=common
+MICROSOFT_REDIRECT_URI=http://localhost:4000/api/auth/microsoft/callback
 
 # Optional: override daily scan schedule (default: 7 AM EST = 12:00 UTC)
 # CRON_SCAN_SCHEDULE=0 12 * * *
@@ -275,10 +296,11 @@ Every `/api/*` route runs through `authMiddleware`, which sets `req.userId`. Eve
 | 3 | Gmail + Outlook OAuth flows, email services, Claude classifier, cron scanner, settings panel | Done |
 | 4 | Botpress ADK bot, scan now / deep scan, review queue UI | Done |
 | 5 | Architecture refactor, Chrome extension JD parsing, Zai migration, multi-role classification | Done |
-| 6 | Full-text JD search, tighten pre-filter | |
-| 7 | Nudge system (in-app display + email reminders) | |
-| 8 | Analytics dashboard UI | |
-| 9 | Clerk auth integration (multi-user accounts), polish, loading states, error handling | |
+| 6 | Outlook OAuth (Azure app registration, Microsoft Graph), school email forwarding integration | Done |
+| 7 | Clerk auth integration (multi-user accounts), each user connects their own email accounts | |
+| 8 | Deployment (Vercel + Railway + Supabase + Botpress Cloud) | |
+| 9 | Nudge system, analytics dashboard UI, polish | |
+| 10+ | Better JD search/extraction, WhatsApp bot integration (status checks, natural language queries) | |
 
 ## Future: Multi-User Account System
 
@@ -305,3 +327,4 @@ The app is designed for multi-tenancy from day one (see above). The planned acco
 - The Botpress ADK bot is a pure LLM gateway — it has no database access, no email fetching, no encryption. All it does is receive text and return structured JSON via `adk.zai.extract()`.
 - Outlook uses MSAL token cache (serialized + encrypted) rather than a single refresh token. The full cache is re-serialized after each token refresh.
 - The `.mcp.json` at the project root configures the Botpress ADK MCP server for Claude Code, enabling AI-assisted development and testing of bot actions.
+- **School email forwarding:** If your school/university blocks OAuth app registrations on their Microsoft 365 tenant, set up email forwarding from your school Outlook to a personal Gmail or Outlook account. The forwarded emails are scanned automatically by Joblog's existing pipeline.
