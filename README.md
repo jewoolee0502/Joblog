@@ -96,7 +96,7 @@ All automated transitions are reversible — logged to `StatusHistory` with an u
 
 ### School / University Email Integration
 
-Many universities (e.g., McGill) lock down their Microsoft 365 tenants, blocking third-party OAuth app registrations. Direct API access (Microsoft Graph) and local proxies (DavMail) won't work because the tenant admin has restricted which applications can access user mailboxes.
+Many universities (e.g., McGill) lock down their Microsoft 365 tenants, blocking third-party OAuth app registrations and direct API access (Microsoft Graph).
 
 **Solution: Email forwarding to a connected personal account.**
 

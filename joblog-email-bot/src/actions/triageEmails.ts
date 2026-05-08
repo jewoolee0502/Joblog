@@ -9,6 +9,7 @@ Only these count as job-related:
 - Rejection notice
 - Job offer
 - Online assessment / coding challenge invitation (with a link or deadline to complete)
+- Referral notification ("You've been referred", "Someone referred you for") — the user has NOT necessarily applied yet
 
 NOT job-related (mark isJobRelated = false):
 - Job board notifications ("New jobs posted", "Companies are hiring")
@@ -22,6 +23,7 @@ STATUS CATEGORIES (use these exact values):
 - INTERVIEW — Company is inviting to an interview
 - REJECTED — Company is rejecting the application
 - OFFER — Company is extending an offer
+- REFERRAL — Someone referred the user for a role, but no application has been submitted yet. Do NOT classify referrals as APPLIED.
 - UNCLEAR — Not about a job application status
 
 CRITICAL: For roleTitle, extract the EXACT job title as written in the email. Do NOT paraphrase or generalize. For example:
@@ -32,7 +34,7 @@ If the email is in a non-English language (e.g. French), translate and understan
 
 const triageSchema = z.object({
   isJobRelated: z.boolean(),
-  category: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'REJECTED', 'OFFER', 'UNCLEAR']),
+  category: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'REJECTED', 'OFFER', 'UNCLEAR', 'REFERRAL']),
   confidence: z.number().min(0).max(1),
   reason: z.string(),
   companyName: z.string().nullable(),

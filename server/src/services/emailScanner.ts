@@ -308,7 +308,8 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
           continue;
         }
 
-        const targetStatus = triage.category !== 'UNCLEAR' ? triage.category : 'APPLIED';
+        const isReferral = triage.category === 'REFERRAL';
+        const targetStatus = isReferral ? 'SAVED' : (triage.category !== 'UNCLEAR' ? triage.category : 'APPLIED');
         const emailUrl = buildEmailUrl(email.provider, email.messageId);
 
         const created = await prisma.application.create({
@@ -317,7 +318,7 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
             companyName,
             roleTitle,
             status: targetStatus,
-            source: 'other',
+            source: isReferral ? 'referral' : 'other',
             contactEmail: email.from,
             emailUrl,
             location: triage.location || undefined,
@@ -338,7 +339,11 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         result.newApplications++;
         console.log(`[triage]   ↳ CREATED ${companyName} — ${roleTitle} (${targetStatus})`);
 
-        if (triage.category === 'UNCLEAR') {
+        if (isReferral || triage.category === 'UNCLEAR') {
+          const nudgeMessage = isReferral
+            ? `Referral detected: "${email.subject}" from ${email.from}. You may need to apply using the referral link. Please review and update the status.`
+            : `Email from ${email.from}: "${email.subject}" — UNCLEAR (${triage.confidence.toFixed(2)}). ${triage.reason}`;
+
           const existingNudge = await prisma.nudge.findFirst({
             where: {
               applicationId: created.id,
@@ -352,11 +357,11 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
               data: {
                 applicationId: created.id,
                 nudgeType: 'email_review',
-                message: `Email from ${email.from}: "${email.subject}" — UNCLEAR (${triage.confidence.toFixed(2)}). ${triage.reason}`,
+                message: nudgeMessage,
               },
             });
             result.flaggedForReview++;
-            console.log(`[triage]   ↳ FLAGGED for review (unclear)`);
+            console.log(`[triage]   ↳ FLAGGED for review (${isReferral ? 'referral' : 'unclear'})`);
           }
         }
       }
