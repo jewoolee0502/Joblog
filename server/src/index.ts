@@ -8,7 +8,7 @@ import applicationsRouter from './routes/applications.js';
 import analyticsRouter from './routes/analytics.js';
 import nudgesRouter from './routes/nudges.js';
 import internalRouter from './routes/internal.js';
-import oauthRouter, { gmailCallbackHandler, microsoftCallbackHandler } from './routes/oauth.js';
+import oauthRouter, { gmailInitHandler, gmailCallbackHandler, outlookInitHandler, microsoftCallbackHandler } from './routes/oauth.js';
 import extensionRouter from './routes/extension.js';
 import { runFullScan } from './services/emailScanner.js';
 
@@ -27,7 +27,9 @@ app.get('/health', (_req, res) => {
 // - Internal routes have their own x-cron-secret auth
 // - OAuth callbacks are external redirects with no Bearer token (userId passed via state param)
 app.use('/api/internal', internalRouter);
+app.get('/api/auth/gmail', gmailInitHandler);
 app.get('/api/auth/gmail/callback', gmailCallbackHandler);
+app.get('/api/auth/outlook', outlookInitHandler);
 app.get('/api/auth/microsoft/callback', microsoftCallbackHandler);
 
 // All other /api routes require Supabase authentication
