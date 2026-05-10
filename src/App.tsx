@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { Toaster, toast } from 'sonner';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { ApplicationDialog } from '@/components/ApplicationDialog';
@@ -6,7 +9,8 @@ import { ReviewQueue } from '@/components/ReviewQueue';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { SummaryBar } from '@/components/SummaryBar';
 import { useApplicationStore } from '@/store/applicationStore';
-import { authApi } from '@/lib/api';
+import { authApi, setAuthTokenGetter } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { STATUS_LABELS, type ApplicationStatus } from '@/types';
 
 type DialogState =
@@ -15,6 +19,8 @@ type DialogState =
   | { open: true; mode: 'edit'; applicationId: string };
 
 export default function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const applications = useApplicationStore((s) => s.applications);
   const isLoading = useApplicationStore((s) => s.isLoading);
   const isLoaded = useApplicationStore((s) => s.isLoaded);
@@ -30,7 +36,42 @@ export default function App() {
   const [deepScanActive, setDeepScanActive] = useState(false);
   const shownAutoToasts = useRef(new Set<string>());
 
+  // Initialize Supabase auth session
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthReady(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Wire up token getter for API requests
+  useEffect(() => {
+    setAuthTokenGetter(() => Promise.resolve(session?.access_token ?? null));
+  }, [session]);
+
+  // Sync auth token to Chrome extension (if installed)
+  useEffect(() => {
+    const extensionId = import.meta.env.VITE_EXTENSION_ID;
+    const chromeRuntime = (globalThis as Record<string, unknown>).chrome as
+      | { runtime?: { sendMessage?: (id: string, msg: unknown) => void } }
+      | undefined;
+    if (!extensionId || !chromeRuntime?.runtime?.sendMessage) return;
+    const token = session?.access_token;
+    if (token) {
+      chromeRuntime.runtime!.sendMessage!(extensionId, { type: 'JOBLOG_AUTH_TOKEN', token });
+    } else {
+      chromeRuntime.runtime!.sendMessage!(extensionId, { type: 'JOBLOG_SIGN_OUT' });
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
     loadApplications();
     loadNeedsReview();
     // Check for in-progress or already-finished deep scan (e.g. after page refresh)
@@ -52,7 +93,7 @@ export default function App() {
         toast.error(`Deep scan failed: ${s.error ?? 'Unknown error'}`);
       }
     }).catch(() => {});
-  }, [loadApplications]);
+  }, [session, loadApplications]);
 
   // Show undo toasts for auto-transitions the user hasn't seen yet
   useEffect(() => {
@@ -139,6 +180,36 @@ export default function App() {
       ? applications.find((a) => a.id === dialog.applicationId) ?? null
       : null;
 
+  if (!authReady) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <div className="text-sm text-slate-500">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
+              <span className="text-lg font-bold">J</span>
+            </div>
+            <h1 className="text-xl font-semibold text-slate-900">Joblog</h1>
+            <p className="text-sm text-slate-500">Sign in to track your applications</p>
+          </div>
+          <Auth
+            supabaseClient={supabase}
+            appearance={{ theme: ThemeSupa }}
+            providers={[]}
+            theme="light"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
       <header className="shrink-0 border-b border-slate-200 bg-white">
@@ -182,6 +253,12 @@ export default function App() {
               className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
               + New application
+            </button>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="rounded-md px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              Sign out
             </button>
           </div>
         </div>

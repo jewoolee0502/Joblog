@@ -8,7 +8,7 @@ import applicationsRouter from './routes/applications.js';
 import analyticsRouter from './routes/analytics.js';
 import nudgesRouter from './routes/nudges.js';
 import internalRouter from './routes/internal.js';
-import oauthRouter from './routes/oauth.js';
+import oauthRouter, { gmailCallbackHandler, microsoftCallbackHandler } from './routes/oauth.js';
 import extensionRouter from './routes/extension.js';
 import { runFullScan } from './services/emailScanner.js';
 
@@ -23,14 +23,20 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
 });
 
-// All /api routes are authenticated (dev stub for now)
+// Routes that bypass Supabase auth middleware:
+// - Internal routes have their own x-cron-secret auth
+// - OAuth callbacks are external redirects with no Bearer token (userId passed via state param)
+app.use('/api/internal', internalRouter);
+app.get('/api/auth/gmail/callback', gmailCallbackHandler);
+app.get('/api/auth/microsoft/callback', microsoftCallbackHandler);
+
+// All other /api routes require Supabase authentication
 app.use('/api', authMiddleware);
 app.use('/api/auth', oauthRouter);
 app.use('/api/applications', applicationsRouter);
 app.use('/api/applications', extensionRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/nudges', nudgesRouter);
-app.use('/api/internal', internalRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ZodError) {

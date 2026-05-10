@@ -29,10 +29,25 @@ function showError(message) {
   showState('error');
 }
 
+async function getAuthToken() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get('joblog_token', (data) => {
+      resolve(data.joblog_token || null);
+    });
+  });
+}
+
 async function handleClick(status) {
   showState('loading');
 
   try {
+    // Check for auth token
+    const token = await getAuthToken();
+    if (!token) {
+      showError('Not signed in. Open Joblog in your browser and sign in first.');
+      return;
+    }
+
     // Get the active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -56,7 +71,10 @@ async function handleClick(status) {
     // Send to backend
     const response = await fetch(`${API_URL}/api/applications/from-extension`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
       body: JSON.stringify({
         pageText,
         pageUrl: tab.url,
@@ -65,6 +83,12 @@ async function handleClick(status) {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired — clear it
+        chrome.storage.local.remove('joblog_token');
+        showError('Session expired. Open Joblog in your browser and sign in again.');
+        return;
+      }
       const body = await response.json().catch(() => null);
       const message = body?.error?.message || body?.error || 'Failed to save application';
       showError(message);
@@ -78,6 +102,16 @@ async function handleClick(status) {
     showError('Could not connect to Joblog server. Is it running?');
   }
 }
+
+// Listen for token updates from the web app
+chrome.runtime.onMessageExternal.addListener((message) => {
+  if (message?.type === 'JOBLOG_AUTH_TOKEN' && message.token) {
+    chrome.storage.local.set({ joblog_token: message.token });
+  }
+  if (message?.type === 'JOBLOG_SIGN_OUT') {
+    chrome.storage.local.remove('joblog_token');
+  }
+});
 
 btnSave.addEventListener('click', () => handleClick('SAVED'));
 btnApply.addEventListener('click', () => handleClick('APPLIED'));

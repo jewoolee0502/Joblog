@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { google } from 'googleapis';
 import { ConfidentialClientApplication } from '@azure/msal-node';
 import { prisma } from '../db.js';
@@ -46,42 +46,48 @@ function getMsalClient(): ConfidentialClientApplication {
 // ---------------------------------------------------------------------------
 
 /** Step 1 — Redirect user to Google consent screen. */
-router.get('/gmail', (_req, res) => {
+router.get('/gmail', (req, res) => {
   const url = googleOAuth2.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     scope: ['https://www.googleapis.com/auth/gmail.readonly'],
+    state: req.userId,
   });
   res.redirect(url);
 });
 
-/** Step 2 — Google redirects here with ?code=. */
-router.get('/gmail/callback', async (req, res, next) => {
+/**
+ * Step 2 — Google redirects here with ?code= and ?state=userId.
+ * Exported separately so it can be registered before auth middleware.
+ */
+export async function gmailCallbackHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const code = req.query.code as string | undefined;
-    if (!code) {
-      res.redirect(`${WEB_ORIGIN}/settings?gmail=error&reason=no_code`);
+    const userId = req.query.state as string | undefined;
+
+    if (!code || !userId) {
+      res.redirect(`${WEB_ORIGIN}?gmail=error&reason=missing_params`);
       return;
     }
 
     const { tokens } = await googleOAuth2.getToken(code);
     if (!tokens.refresh_token) {
-      res.redirect(`${WEB_ORIGIN}/settings?gmail=error&reason=no_refresh_token`);
+      res.redirect(`${WEB_ORIGIN}?gmail=error&reason=no_refresh_token`);
       return;
     }
 
     const encryptedToken = encrypt(tokens.refresh_token);
 
     await prisma.user.update({
-      where: { id: req.userId },
+      where: { id: userId },
       data: { gmailRefreshToken: encryptedToken },
     });
 
-    res.redirect(`${WEB_ORIGIN}/settings?gmail=connected`);
+    res.redirect(`${WEB_ORIGIN}?gmail=connected`);
   } catch (err) {
     next(err);
   }
-});
+}
 
 /** Disconnect Gmail — revoke token and clear from DB. */
 router.delete('/gmail', async (req, res, next) => {
@@ -113,11 +119,12 @@ router.delete('/gmail', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 
 /** Step 1 — Redirect user to Microsoft consent screen. */
-router.get('/outlook', async (_req, res, next) => {
+router.get('/outlook', async (req, res, next) => {
   try {
     const url = await getMsalClient().getAuthCodeUrl({
       scopes: ['Mail.Read', 'offline_access'],
       redirectUri: process.env.MICROSOFT_REDIRECT_URI ?? '',
+      state: req.userId,
     });
     res.redirect(url);
   } catch (err) {
@@ -125,14 +132,19 @@ router.get('/outlook', async (_req, res, next) => {
   }
 });
 
-/** Step 2 — Microsoft redirects here with ?code=. */
-router.get('/microsoft/callback', async (req, res, next) => {
+/**
+ * Step 2 — Microsoft redirects here with ?code= and ?state=userId.
+ * Exported separately so it can be registered before auth middleware.
+ */
+export async function microsoftCallbackHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const code = req.query.code as string | undefined;
-    console.log('[outlook] Callback received, code present:', !!code);
-    if (!code) {
-      console.log('[outlook] No code in callback, query:', req.query);
-      res.redirect(`${WEB_ORIGIN}/settings?outlook=error&reason=no_code`);
+    const userId = req.query.state as string | undefined;
+
+    console.log('[outlook] Callback received, code present:', !!code, 'userId:', userId);
+    if (!code || !userId) {
+      console.log('[outlook] Missing params in callback, query:', req.query);
+      res.redirect(`${WEB_ORIGIN}?outlook=error&reason=missing_params`);
       return;
     }
 
@@ -150,17 +162,17 @@ router.get('/microsoft/callback', async (req, res, next) => {
     const encryptedCache = encrypt(cacheSnapshot);
 
     await prisma.user.update({
-      where: { id: req.userId },
+      where: { id: userId },
       data: { outlookRefreshToken: encryptedCache },
     });
 
-    console.log('[outlook] Connection saved for user', req.userId);
-    res.redirect(`${WEB_ORIGIN}/settings?outlook=connected`);
+    console.log('[outlook] Connection saved for user', userId);
+    res.redirect(`${WEB_ORIGIN}?outlook=connected`);
   } catch (err) {
     console.error('[outlook] Callback error:', err);
     next(err);
   }
-});
+}
 
 /** Disconnect Outlook — clear token from DB. */
 router.delete('/outlook', async (req, res, next) => {
