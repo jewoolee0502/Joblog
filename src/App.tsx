@@ -274,9 +274,7 @@ export default function App() {
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex w-full items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
-              <span className="text-sm font-bold">J</span>
-            </div>
+            <img src="/images/header_logo.png" alt="Joblog" className="h-9 w-9 rounded-lg object-contain" />
             <div>
               <div className="text-lg font-semibold text-slate-900">Joblog</div>
               <div className="text-xs text-slate-500">Automated job application tracker</div>
