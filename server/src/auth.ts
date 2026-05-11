@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { prisma } from './db.js';
 
 declare global {
@@ -10,30 +11,51 @@ declare global {
   }
 }
 
-const DEV_USER_ID = process.env.DEV_USER_ID ?? 'dev-user-1';
-const DEV_USER_EMAIL = process.env.DEV_USER_EMAIL ?? 'dev@joblog.local';
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
 
-let devUserEnsured = false;
-
-async function ensureDevUser() {
-  if (devUserEnsured) return;
-  await prisma.user.upsert({
-    where: { id: DEV_USER_ID },
-    update: {},
-    create: { id: DEV_USER_ID, email: DEV_USER_EMAIL },
-  });
-  devUserEnsured = true;
-}
+/** Cache of user IDs already provisioned in our DB. */
+const provisionedUsers = new Set<string>();
 
 /**
- * Dev-mode auth middleware.
- * TODO: clerk — replace with Clerk JWT verification.
- * For now, every request is attributed to a single dev user that we upsert on first hit.
+ * Supabase auth middleware.
+ * Verifies the Bearer token via Supabase Auth, auto-provisions a User
+ * record on first request, and sets req.userId.
  */
-export async function authMiddleware(req: Request, _res: Response, next: NextFunction) {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    await ensureDevUser();
-    req.userId = DEV_USER_ID;
+    const header = req.headers.authorization;
+    const token = header?.startsWith('Bearer ') ? header.slice(7) : null;
+
+    if (!token) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const userId = data.user.id;
+    const email = data.user.email ?? '';
+
+    // Auto-provision user on first authenticated request
+    if (!provisionedUsers.has(userId)) {
+      await prisma.user.upsert({
+        where: { id: userId },
+        update: { email },
+        create: { id: userId, email },
+      });
+
+      provisionedUsers.add(userId);
+    }
+
+    req.userId = userId;
     next();
   } catch (err) {
     next(err);

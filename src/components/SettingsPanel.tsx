@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { authApi, type ConnectionStatus } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
@@ -104,14 +105,14 @@ export function SettingsPanel({ open, onClose, onDeepScanStarted }: SettingsPane
                 provider="Gmail"
                 connected={connections.gmail.connected}
                 lastPolledAt={connections.gmail.lastPolledAt}
-                connectUrl={`${API_URL}/api/auth/gmail`}
+                connectPath="/api/auth/gmail"
                 onDisconnect={() => handleDisconnect('gmail')}
               />
               <ConnectionCard
                 provider="Outlook"
                 connected={connections.outlook.connected}
                 lastPolledAt={connections.outlook.lastPolledAt}
-                connectUrl={`${API_URL}/api/auth/outlook`}
+                connectPath="/api/auth/outlook"
                 onDisconnect={() => handleDisconnect('outlook')}
               />
             </div>
@@ -164,15 +165,22 @@ function ConnectionCard({
   provider,
   connected,
   lastPolledAt,
-  connectUrl,
+  connectPath,
   onDisconnect,
 }: {
   provider: string;
   connected: boolean;
   lastPolledAt: string | null;
-  connectUrl: string;
+  connectPath: string;
   onDisconnect: () => void;
 }) {
+  const handleConnect = async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    window.location.href = `${API_URL}${connectPath}?token=${encodeURIComponent(token)}`;
+  };
+
   return (
     <div className="rounded-lg border border-slate-200 px-4 py-3">
       <div className="flex items-center justify-between">
@@ -190,12 +198,12 @@ function ConnectionCard({
             Disconnect
           </button>
         ) : (
-          <a
-            href={connectUrl}
+          <button
+            onClick={handleConnect}
             className="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white hover:bg-slate-800"
           >
             Connect
-          </a>
+          </button>
         )}
       </div>
       {connected && lastPolledAt && (

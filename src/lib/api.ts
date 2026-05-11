@@ -2,13 +2,24 @@ import type { Application, ApplicationStatus, Nudge } from '@/types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
+let _getToken: (() => Promise<string | null>) | null = null;
+
+export function setAuthTokenGetter(fn: () => Promise<string | null>) {
+  _getToken = fn;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = _getToken ? await _getToken() : null;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> ?? {}),
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers,
     credentials: 'include',
   });
   if (!res.ok) {
