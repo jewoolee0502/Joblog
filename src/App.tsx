@@ -190,18 +190,77 @@ export default function App() {
 
   if (!session) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
-        <div className="w-full max-w-sm">
-          <div className="mb-6 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
-              <span className="text-lg font-bold">J</span>
+      <div
+        className="flex min-h-screen w-screen items-center justify-center px-4"
+        style={{
+          background: 'linear-gradient(135deg, #FFF7ED 0%, #FFFBEB 40%, #FFF1F2 100%)',
+        }}
+      >
+        {/* Subtle radial warm glow */}
+        <div
+          className="pointer-events-none fixed inset-0"
+          style={{
+            background: 'radial-gradient(ellipse at 30% 20%, rgba(251,191,36,0.08) 0%, transparent 60%)',
+          }}
+        />
+
+        <div className="animate-fade-in-up relative w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl shadow-amber-900/5">
+          <div className="mb-8 text-center">
+            <div
+              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl shadow-md"
+              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+            >
+              <span
+                className="text-2xl text-white"
+                style={{ fontFamily: '"DM Serif Display", serif' }}
+              >
+                J
+              </span>
             </div>
-            <h1 className="text-xl font-semibold text-slate-900">Joblog</h1>
-            <p className="text-sm text-slate-500">Sign in to track your applications</p>
+            <h1
+              className="text-2xl text-stone-800"
+              style={{ fontFamily: '"DM Serif Display", serif' }}
+            >
+              Welcome to Joblog
+            </h1>
+            <p
+              className="mt-1.5 text-sm text-stone-500"
+              style={{ fontFamily: '"DM Sans", sans-serif' }}
+            >
+              Your job search, organized.
+            </p>
           </div>
           <Auth
             supabaseClient={supabase}
-            appearance={{ theme: ThemeSupa }}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: '#d97706',
+                    brandAccent: '#b45309',
+                    inputBackground: '#FFFBF5',
+                    inputBorder: '#e5d5c0',
+                    inputBorderFocus: '#d97706',
+                    inputBorderHover: '#d97706',
+                  },
+                  borderWidths: {
+                    buttonBorderWidth: '0px',
+                    inputBorderWidth: '1px',
+                  },
+                  radii: {
+                    borderRadiusButton: '0.75rem',
+                    inputBorderRadius: '0.75rem',
+                  },
+                  fonts: {
+                    bodyFontFamily: '"DM Sans", sans-serif',
+                    buttonFontFamily: '"DM Sans", sans-serif',
+                    labelFontFamily: '"DM Sans", sans-serif',
+                    inputFontFamily: '"DM Sans", sans-serif',
+                  },
+                },
+              },
+            }}
             providers={[]}
             theme="light"
           />
