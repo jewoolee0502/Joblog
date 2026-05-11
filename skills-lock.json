@@ -5,6 +5,12 @@
       "source": "botpress/skills",
       "sourceType": "github",
       "computedHash": "5433f790eb014f108eebe98037e63530437c12e35829a5e1c48b26ecf9ef2ee0"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": "skill/SKILL.md",
+      "computedHash": "8cdf2e788eaca3af7d02026ef9cec55b506100a00d130f938e3fb1ad669c0ad0"
     }
   }
 }

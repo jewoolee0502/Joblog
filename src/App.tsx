@@ -193,77 +193,77 @@ export default function App() {
       <div
         className="flex min-h-screen w-screen items-center justify-center px-4"
         style={{
-          background: 'linear-gradient(135deg, #FFF7ED 0%, #FFFBEB 40%, #FFF1F2 100%)',
+          fontFamily: '"DM Sans", sans-serif',
+          background: 'oklch(0.98 0.005 240)',
         }}
       >
-        {/* Subtle radial warm glow */}
-        <div
-          className="pointer-events-none fixed inset-0"
-          style={{
-            background: 'radial-gradient(ellipse at 30% 20%, rgba(251,191,36,0.08) 0%, transparent 60%)',
-          }}
-        />
-
-        <div className="animate-fade-in-up relative w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl shadow-amber-900/5">
-          <div className="mb-8 text-center">
-            <div
-              className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl shadow-md"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
-            >
-              <span
-                className="text-2xl text-white"
-                style={{ fontFamily: '"DM Serif Display", serif' }}
-              >
-                J
-              </span>
-            </div>
-            <h1
-              className="text-2xl text-stone-800"
-              style={{ fontFamily: '"DM Serif Display", serif' }}
-            >
-              Welcome to Joblog
-            </h1>
-            <p
-              className="mt-1.5 text-sm text-stone-500"
-              style={{ fontFamily: '"DM Sans", sans-serif' }}
-            >
-              Your job search, organized.
-            </p>
+        <div className="w-full" style={{ maxWidth: '440px' }}>
+          {/* Logo — sized large so tagline is legible; negative margin trims PNG whitespace */}
+          <div className="-mb-4 flex justify-center overflow-hidden" style={{ marginTop: '-24px' }}>
+            <img
+              src="/images/joblog_logo.png"
+              alt="Joblog — Smart Job Tracking, Powered by AI"
+              style={{ width: '360px', maxWidth: '100%' }}
+              className="object-contain"
+            />
           </div>
-          <Auth
-            supabaseClient={supabase}
-            appearance={{
-              theme: ThemeSupa,
-              variables: {
-                default: {
-                  colors: {
-                    brand: '#d97706',
-                    brandAccent: '#b45309',
-                    inputBackground: '#FFFBF5',
-                    inputBorder: '#e5d5c0',
-                    inputBorderFocus: '#d97706',
-                    inputBorderHover: '#d97706',
-                  },
-                  borderWidths: {
-                    buttonBorderWidth: '0px',
-                    inputBorderWidth: '1px',
-                  },
-                  radii: {
-                    borderRadiusButton: '0.75rem',
-                    inputBorderRadius: '0.75rem',
-                  },
-                  fonts: {
-                    bodyFontFamily: '"DM Sans", sans-serif',
-                    buttonFontFamily: '"DM Sans", sans-serif',
-                    labelFontFamily: '"DM Sans", sans-serif',
-                    inputFontFamily: '"DM Sans", sans-serif',
+
+          {/* Auth card */}
+          <div
+            className="rounded-xl px-8 pb-8 pt-6"
+            style={{
+              background: 'oklch(1 0 0)',
+              boxShadow: '0 1px 3px oklch(0.4 0.01 240 / 0.08), 0 8px 24px oklch(0.4 0.01 240 / 0.06)',
+            }}
+          >
+            <p
+              className="mb-5 text-center text-sm"
+              style={{ color: 'oklch(0.55 0.01 240)' }}
+            >
+              Sign in to track your applications
+            </p>
+            <Auth
+              supabaseClient={supabase}
+              appearance={{
+                theme: ThemeSupa,
+                variables: {
+                  default: {
+                    colors: {
+                      brand: 'oklch(0.55 0.15 230)',
+                      brandAccent: 'oklch(0.48 0.15 230)',
+                      inputBackground: 'oklch(0.985 0.003 240)',
+                      inputBorder: 'oklch(0.88 0.01 240)',
+                      inputBorderFocus: 'oklch(0.55 0.15 230)',
+                      inputBorderHover: 'oklch(0.7 0.08 230)',
+                    },
+                    borderWidths: {
+                      buttonBorderWidth: '0px',
+                      inputBorderWidth: '1px',
+                    },
+                    radii: {
+                      borderRadiusButton: '8px',
+                      inputBorderRadius: '8px',
+                    },
+                    fonts: {
+                      bodyFontFamily: '"DM Sans", sans-serif',
+                      buttonFontFamily: '"DM Sans", sans-serif',
+                      labelFontFamily: '"DM Sans", sans-serif',
+                      inputFontFamily: '"DM Sans", sans-serif',
+                    },
                   },
                 },
-              },
-            }}
-            providers={[]}
-            theme="light"
-          />
+              }}
+              providers={[]}
+              theme="light"
+            />
+          </div>
+
+          <p
+            className="mt-4 text-center text-xs"
+            style={{ color: 'oklch(0.6 0.01 240)' }}
+          >
+            Your data is encrypted and never shared.
+          </p>
         </div>
       </div>
     );
