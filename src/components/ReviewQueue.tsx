@@ -53,8 +53,8 @@ export function ReviewQueue({ open, onClose, onViewApplication, onCountChange, r
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
-      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className="relative h-full w-full max-w-lg overflow-y-auto bg-white shadow-xl">
+      <div className="backdrop-fade-in absolute inset-0 bg-black/20" onClick={onClose} />
+      <div className="panel-slide-in relative h-full w-full max-w-lg overflow-y-auto bg-white shadow-xl">
         <div className="border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">

@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import type { Application, ApplicationStatus } from '@/types';
 import { STATUS_LABELS } from '@/types';
 import { ApplicationCard } from './ApplicationCard';
-import { statusAccent } from '@/lib/utils';
+import { statusAccent, statusDropZone } from '@/lib/utils';
 
 interface Props {
   status: ApplicationStatus;
@@ -46,8 +46,8 @@ export function KanbanColumn({ status, applications, needsReviewIds, onCardClick
       <div
         ref={setNodeRef}
         className={clsx(
-          'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-md p-1 transition',
-          isOver && 'bg-blue-50 ring-2 ring-blue-300',
+          'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-md p-1 transition-all duration-150',
+          isOver && statusDropZone(status),
         )}
       >
         <SortableContext
@@ -60,8 +60,8 @@ export function KanbanColumn({ status, applications, needsReviewIds, onCardClick
         </SortableContext>
 
         {applications.length === 0 && (
-          <div className="rounded border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
-            No applications
+          <div className="rounded-lg border border-dashed border-slate-200/80 p-4 text-center text-xs text-slate-400">
+            Drop an application here
           </div>
         )}
       </div>

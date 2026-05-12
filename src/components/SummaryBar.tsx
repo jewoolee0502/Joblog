@@ -1,5 +1,13 @@
 import { useApplicationStore } from '@/store/applicationStore';
 
+const STAT_ACCENTS = [
+  'border-t-slate-400',   // Total
+  'border-t-blue-500',    // Submitted
+  'border-t-violet-500',  // Response rate
+  'border-t-purple-500',  // Interview rate
+  'border-t-emerald-500', // Offers
+];
+
 export function SummaryBar() {
   const apps = useApplicationStore((s) => s.applications);
   const total = apps.length;
@@ -25,10 +33,10 @@ export function SummaryBar() {
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-      {stats.map((s) => (
+      {stats.map((s, i) => (
         <div
           key={s.label}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
+          className={`rounded-lg border border-t-2 ${STAT_ACCENTS[i]} border-slate-200 bg-white px-4 py-3 shadow-sm transition-shadow duration-150 hover:shadow-md`}
         >
           <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
             {s.label}

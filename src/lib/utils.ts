@@ -12,6 +12,21 @@ export function isStale(app: Application): boolean {
   return daysSince(app.lastUpdatedAt) >= threshold;
 }
 
+export function statusDropZone(status: ApplicationStatus): string {
+  switch (status) {
+    case 'SAVED':       return 'bg-slate-50 ring-2 ring-slate-300';
+    case 'APPLIED':     return 'bg-blue-50 ring-2 ring-blue-300';
+    case 'SCREENING':   return 'bg-violet-50 ring-2 ring-violet-300';
+    case 'INTERVIEW':   return 'bg-purple-50 ring-2 ring-purple-300';
+    case 'FINAL_ROUND': return 'bg-pink-50 ring-2 ring-pink-300';
+    case 'OFFER':       return 'bg-emerald-50 ring-2 ring-emerald-300';
+    case 'ACCEPTED':    return 'bg-emerald-50 ring-2 ring-emerald-400';
+    case 'REJECTED':    return 'bg-red-50 ring-2 ring-red-300';
+    case 'WITHDRAWN':   return 'bg-gray-50 ring-2 ring-gray-300';
+    case 'GHOSTED':     return 'bg-slate-100 ring-2 ring-slate-400';
+  }
+}
+
 export function statusAccent(status: ApplicationStatus): string {
   switch (status) {
     case 'SAVED':

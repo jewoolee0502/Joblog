@@ -8,6 +8,43 @@ body,
   height: 100%;
 }
 
+/* Panel slide-in from right */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.panel-slide-in {
+  animation: slide-in-right 200ms ease-out both;
+}
+.backdrop-fade-in {
+  animation: fade-in 150ms ease-out both;
+}
+
+/* Badge pulse */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.badge-pulse {
+  animation: badge-pulse 300ms ease-out;
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .panel-slide-in,
+  .backdrop-fade-in,
+  .badge-pulse {
+    animation: none;
+  }
+  * {
+    transition-duration: 0ms !important;
+  }
+}
+
 /* Hide scrollbar styling for kanban horizontal scroll */
 .kanban-scroll::-webkit-scrollbar {
   height: 10px;

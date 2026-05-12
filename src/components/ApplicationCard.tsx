@@ -8,12 +8,27 @@ interface Props {
   application: Application;
   needsReview?: boolean;
   onClick: (id: string) => void;
+  overlay?: boolean;
 }
 
-export function ApplicationCard({ application, needsReview, onClick }: Props) {
+const STATUS_BORDER: Record<string, string> = {
+  SAVED: 'border-l-slate-400',
+  APPLIED: 'border-l-blue-500',
+  SCREENING: 'border-l-violet-500',
+  INTERVIEW: 'border-l-purple-500',
+  FINAL_ROUND: 'border-l-pink-500',
+  OFFER: 'border-l-emerald-500',
+  ACCEPTED: 'border-l-emerald-600',
+  REJECTED: 'border-l-red-500',
+  WITHDRAWN: 'border-l-gray-400',
+  GHOSTED: 'border-l-slate-500',
+};
+
+export function ApplicationCard({ application, needsReview, onClick, overlay }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: application.id,
     data: { type: 'application', status: application.status },
+    disabled: overlay,
   });
 
   const style = {
@@ -26,32 +41,44 @@ export function ApplicationCard({ application, needsReview, onClick }: Props) {
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
+      ref={overlay ? undefined : setNodeRef}
+      style={overlay ? undefined : style}
+      {...(overlay ? {} : attributes)}
+      {...(overlay ? {} : listeners)}
       onClick={(e) => {
-        // Avoid firing click after a drag
-        if (isDragging) return;
+        if (isDragging || overlay) return;
         e.stopPropagation();
         onClick(application.id);
       }}
       className={clsx(
-        'group cursor-grab select-none rounded-lg border bg-white p-3 shadow-sm transition hover:shadow-md active:cursor-grabbing',
+        'cursor-grab select-none rounded-lg border border-l-[3px] bg-white p-3 transition-all duration-150',
+        STATUS_BORDER[application.status] ?? 'border-l-slate-300',
         needsReview
-          ? 'border-red-400 ring-1 ring-red-200'
+          ? 'border-red-400 border-l-red-500 ring-1 ring-red-200'
           : stale
-            ? 'border-amber-400 ring-1 ring-amber-200'
+            ? 'border-amber-400 border-l-amber-500 ring-1 ring-amber-200'
             : 'border-slate-200',
-        isDragging && 'opacity-40',
+        isDragging
+          ? 'scale-[0.97] opacity-30 shadow-none'
+          : 'shadow-sm hover:-translate-y-0.5 hover:shadow-md',
+        overlay && 'rotate-[2deg] shadow-lg ring-1 ring-slate-200',
+        'active:cursor-grabbing',
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-slate-900">
+          <div
+            className="truncate text-sm font-semibold text-slate-900"
+            title={application.companyName}
+          >
             {application.companyName}
           </div>
-          <div className="truncate text-xs text-slate-600">{application.roleTitle}</div>
+          <div
+            className="truncate text-xs text-slate-600"
+            title={application.roleTitle}
+          >
+            {application.roleTitle}
+          </div>
         </div>
         <div className="flex items-center gap-1">
           {needsReview && (

@@ -91,7 +91,7 @@ export function KanbanBoard({ onCardClick, onAddClick }: Props) {
         ))}
       </div>
       <DragOverlay>
-        {activeApp ? <ApplicationCard application={activeApp} onClick={() => {}} /> : null}
+        {activeApp ? <ApplicationCard application={activeApp} onClick={() => {}} overlay /> : null}
       </DragOverlay>
     </DndContext>
   );
