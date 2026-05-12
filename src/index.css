@@ -2,10 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Dark theme palette — OKLCH, tinted toward brand blue (hue 240) */
+  --bg-base: oklch(0.18 0.01 240);
+  --bg-raised: oklch(0.22 0.01 240);
+  --bg-surface: oklch(0.26 0.012 240);
+  --bg-overlay: oklch(0.30 0.012 240);
+  --border-subtle: oklch(0.33 0.012 240);
+  --border-default: oklch(0.38 0.015 240);
+  --text-primary: oklch(0.94 0.005 240);
+  --text-secondary: oklch(0.72 0.01 240);
+  --text-tertiary: oklch(0.58 0.01 240);
+  --accent: oklch(0.65 0.18 240);
+  --accent-hover: oklch(0.72 0.18 240);
+  --accent-muted: oklch(0.35 0.06 240);
+
+  /* Motion */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] {
+  --bg-base: oklch(0.97 0.005 240);
+  --bg-raised: oklch(1 0 0);
+  --bg-surface: oklch(0.96 0.005 240);
+  --bg-overlay: oklch(0.94 0.006 240);
+  --border-subtle: oklch(0.90 0.008 240);
+  --border-default: oklch(0.84 0.01 240);
+  --text-primary: oklch(0.15 0.01 240);
+  --text-secondary: oklch(0.40 0.01 240);
+  --text-tertiary: oklch(0.55 0.01 240);
+  --accent: oklch(0.50 0.20 240);
+  --accent-hover: oklch(0.44 0.20 240);
+  --accent-muted: oklch(0.90 0.04 240);
+}
+
 html,
 body,
 #root {
   height: 100%;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
 }
 
 /* Panel slide-in from right */
@@ -17,11 +57,18 @@ body,
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
 .panel-slide-in {
-  animation: slide-in-right 200ms ease-out both;
+  animation: slide-in-right 200ms var(--ease-out-expo) both;
 }
 .backdrop-fade-in {
-  animation: fade-in 150ms ease-out both;
+  animation: fade-in 150ms var(--ease-out-quart) both;
+}
+.dialog-scale-in {
+  animation: scale-in 200ms var(--ease-out-expo) both;
 }
 
 /* Badge pulse */
@@ -30,13 +77,14 @@ body,
   50% { transform: scale(1.15); }
 }
 .badge-pulse {
-  animation: badge-pulse 300ms ease-out;
+  animation: badge-pulse 300ms var(--ease-out-quart);
 }
 
 /* Reduce motion */
 @media (prefers-reduced-motion: reduce) {
   .panel-slide-in,
   .backdrop-fade-in,
+  .dialog-scale-in,
   .badge-pulse {
     animation: none;
   }
@@ -47,9 +95,15 @@ body,
 
 /* Hide scrollbar styling for kanban horizontal scroll */
 .kanban-scroll::-webkit-scrollbar {
-  height: 10px;
+  height: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 .kanban-scroll::-webkit-scrollbar-thumb {
-  background: rgb(203 213 225);
+  background: var(--border-subtle);
   border-radius: 9999px;
+}
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--border-default);
 }

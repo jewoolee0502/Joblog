@@ -11,19 +11,6 @@ interface Props {
   overlay?: boolean;
 }
 
-const STATUS_BORDER: Record<string, string> = {
-  SAVED: 'border-l-slate-400',
-  APPLIED: 'border-l-blue-500',
-  SCREENING: 'border-l-violet-500',
-  INTERVIEW: 'border-l-purple-500',
-  FINAL_ROUND: 'border-l-pink-500',
-  OFFER: 'border-l-emerald-500',
-  ACCEPTED: 'border-l-emerald-600',
-  REJECTED: 'border-l-red-500',
-  WITHDRAWN: 'border-l-gray-400',
-  GHOSTED: 'border-l-slate-500',
-};
-
 export function ApplicationCard({ application, needsReview, onClick, overlay }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: application.id,
@@ -51,30 +38,29 @@ export function ApplicationCard({ application, needsReview, onClick, overlay }: 
         onClick(application.id);
       }}
       className={clsx(
-        'cursor-grab select-none rounded-lg border border-l-[3px] bg-white p-3 transition-all duration-150',
-        STATUS_BORDER[application.status] ?? 'border-l-slate-300',
+        'cursor-grab select-none rounded-lg border bg-dark-raised p-3 transition-all duration-150',
         needsReview
-          ? 'border-red-400 border-l-red-500 ring-1 ring-red-200'
+          ? 'border-stage-rejected/50 ring-1 ring-stage-rejected/20'
           : stale
-            ? 'border-amber-400 border-l-amber-500 ring-1 ring-amber-200'
-            : 'border-slate-200',
+            ? 'border-amber-500/40 ring-1 ring-amber-500/15'
+            : 'border-border-subtle',
         isDragging
-          ? 'scale-[0.97] opacity-30 shadow-none'
-          : 'shadow-sm hover:-translate-y-0.5 hover:shadow-md',
-        overlay && 'rotate-[2deg] shadow-lg ring-1 ring-slate-200',
+          ? 'scale-[0.97] opacity-30'
+          : 'hover:-translate-y-0.5 hover:border-border hover:bg-dark-surface hover:shadow-lg hover:shadow-accent/5',
+        overlay && 'rotate-[2deg] border-accent/40 bg-dark-surface shadow-xl shadow-accent/10',
         'active:cursor-grabbing',
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div
-            className="truncate text-sm font-semibold text-slate-900"
+            className="truncate text-sm font-medium text-content-primary"
             title={application.companyName}
           >
             {application.companyName}
           </div>
           <div
-            className="truncate text-xs text-slate-600"
+            className="truncate text-xs text-content-secondary"
             title={application.roleTitle}
           >
             {application.roleTitle}
@@ -84,17 +70,17 @@ export function ApplicationCard({ application, needsReview, onClick, overlay }: 
           {needsReview && (
             <span
               title="Needs review"
-              className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-800"
+              className="rounded-full bg-stage-rejected/15 px-1.5 py-0.5 text-[10px] font-semibold text-stage-rejected"
             >
               ?
             </span>
           )}
           {stale && (
             <span
-              title="Stale — needs follow-up"
-              className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+              title="Stale: needs follow-up"
+              className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400"
             >
-              ⚠
+              !
             </span>
           )}
         </div>
@@ -105,7 +91,7 @@ export function ApplicationCard({ application, needsReview, onClick, overlay }: 
           {application.tags.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+              className="rounded bg-dark-surface px-1.5 py-0.5 text-[10px] font-medium text-content-secondary"
             >
               {tag}
             </span>
@@ -113,8 +99,8 @@ export function ApplicationCard({ application, needsReview, onClick, overlay }: 
         </div>
       )}
 
-      <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
-        <span>{application.location ?? (application.isRemote ? 'Remote' : '—')}</span>
+      <div className="mt-2 flex items-center justify-between text-[10px] text-content-tertiary">
+        <span>{application.location ?? (application.isRemote ? 'Remote' : '')}</span>
         <span>{days === 0 ? 'today' : `${days}d`}</span>
       </div>
     </div>

@@ -124,25 +124,28 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      className="backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'oklch(0.08 0.01 240 / 0.7)' }}
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl"
+        className="dialog-scale-in max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border-subtle bg-dark-raised shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit}>
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-slate-900">
+          <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4">
+            <h2 className="text-base font-semibold text-content-primary">
               {mode === 'create' ? 'New Application' : 'Edit Application'}
             </h2>
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-lg p-1.5 text-content-tertiary transition-colors duration-150 hover:bg-dark-surface hover:text-content-primary"
               aria-label="Close"
             >
-              ✕
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
@@ -213,7 +216,7 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
                 value={form.salaryRange}
                 onChange={(e) => update('salaryRange', e.target.value)}
                 className={inputCls}
-                placeholder="$120k–$150k"
+                placeholder="$120k-$150k"
               />
             </Field>
 
@@ -239,12 +242,12 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
                   href={application.emailUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-800 underline truncate block"
+                  className="truncate text-sm text-accent hover:text-accent-hover"
                 >
                   Open in inbox
                 </a>
               ) : (
-                <span className="text-sm text-slate-400">No email linked</span>
+                <span className="text-sm text-content-tertiary">No email linked</span>
               )}
             </Field>
 
@@ -257,11 +260,12 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
               />
             </Field>
 
-            <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-content-secondary sm:col-span-2">
               <input
                 type="checkbox"
                 checked={form.isRemote}
                 onChange={(e) => update('isRemote', e.target.checked)}
+                className="rounded border-border accent-accent"
               />
               Remote
             </label>
@@ -284,13 +288,13 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
             </Field>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+          <div className="flex items-center justify-between border-t border-border-subtle px-6 py-4">
             <div>
               {mode === 'edit' && (
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-stage-rejected transition-colors duration-150 hover:bg-stage-rejected/10"
                 >
                   Delete
                 </button>
@@ -300,13 +304,13 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-surface hover:text-content-primary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
               >
                 {mode === 'create' ? 'Create' : 'Save changes'}
               </button>
@@ -319,7 +323,7 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
 }
 
 const inputCls =
-  'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500';
+  'w-full rounded-lg border border-border-subtle bg-dark-surface px-3 py-2 text-sm text-content-primary placeholder:text-content-tertiary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-colors duration-150';
 
 function Field({
   label,
@@ -331,8 +335,8 @@ function Field({
   className?: string;
 }) {
   return (
-    <label className={`flex flex-col gap-1 text-sm ${className ?? ''}`}>
-      <span className="font-medium text-slate-700">{label}</span>
+    <label className={`flex flex-col gap-1.5 text-sm ${className ?? ''}`}>
+      <span className="text-xs font-medium text-content-secondary">{label}</span>
       {children}
     </label>
   );

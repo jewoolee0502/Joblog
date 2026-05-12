@@ -11,6 +11,7 @@ import { SummaryBar } from '@/components/SummaryBar';
 import { useApplicationStore } from '@/store/applicationStore';
 import { authApi, setAuthTokenGetter } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
+import { initTheme, setTheme, type Theme } from '@/lib/theme';
 import { STATUS_LABELS, type ApplicationStatus } from '@/types';
 
 type DialogState =
@@ -21,6 +22,12 @@ type DialogState =
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [theme, setThemeState] = useState<Theme>(() => initTheme());
+
+  const handleThemeChange = (t: Theme) => {
+    setTheme(t);
+    setThemeState(t);
+  };
   const applications = useApplicationStore((s) => s.applications);
   const isLoading = useApplicationStore((s) => s.isLoading);
   const isLoaded = useApplicationStore((s) => s.isLoaded);
@@ -191,14 +198,10 @@ export default function App() {
   if (!session) {
     return (
       <div
-        className="flex min-h-screen w-screen items-center justify-center px-4"
-        style={{
-          fontFamily: '"DM Sans", sans-serif',
-          background: 'oklch(0.98 0.005 240)',
-        }}
+        className="flex min-h-screen w-screen items-center justify-center bg-dark-base px-4"
+        style={{ fontFamily: '"DM Sans", sans-serif' }}
       >
         <div className="w-full" style={{ maxWidth: '440px' }}>
-          {/* Logo — sized large so tagline is legible; negative margin trims PNG whitespace */}
           <div className="-mb-4 flex justify-center overflow-hidden" style={{ marginTop: '-24px' }}>
             <img
               src="/images/joblog_logo.png"
@@ -208,18 +211,8 @@ export default function App() {
             />
           </div>
 
-          {/* Auth card */}
-          <div
-            className="rounded-xl px-8 pb-8 pt-6"
-            style={{
-              background: 'oklch(1 0 0)',
-              boxShadow: '0 1px 3px oklch(0.4 0.01 240 / 0.08), 0 8px 24px oklch(0.4 0.01 240 / 0.06)',
-            }}
-          >
-            <p
-              className="mb-5 text-center text-sm"
-              style={{ color: 'oklch(0.55 0.01 240)' }}
-            >
+          <div className="rounded-xl border border-border-subtle bg-dark-raised px-8 pb-8 pt-6">
+            <p className="mb-5 text-center text-sm text-content-secondary">
               Sign in to track your applications
             </p>
             <Auth
@@ -229,12 +222,21 @@ export default function App() {
                 variables: {
                   default: {
                     colors: {
-                      brand: 'oklch(0.55 0.15 230)',
-                      brandAccent: 'oklch(0.48 0.15 230)',
-                      inputBackground: 'oklch(0.985 0.003 240)',
-                      inputBorder: 'oklch(0.88 0.01 240)',
-                      inputBorderFocus: 'oklch(0.55 0.15 230)',
-                      inputBorderHover: 'oklch(0.7 0.08 230)',
+                      brand: 'var(--accent)',
+                      brandAccent: 'var(--accent-hover)',
+                      defaultButtonBackground: 'var(--bg-surface)',
+                      defaultButtonBackgroundHover: 'var(--bg-overlay)',
+                      defaultButtonBorder: 'var(--border-default)',
+                      defaultButtonText: 'var(--text-primary)',
+                      inputBackground: 'var(--bg-raised)',
+                      inputBorder: 'var(--border-subtle)',
+                      inputBorderFocus: 'var(--accent)',
+                      inputBorderHover: 'var(--border-default)',
+                      inputText: 'var(--text-primary)',
+                      inputPlaceholder: 'var(--text-tertiary)',
+                      inputLabelText: 'var(--text-secondary)',
+                      anchorTextColor: 'var(--accent)',
+                      anchorTextHoverColor: 'var(--accent-hover)',
                     },
                     borderWidths: {
                       buttonBorderWidth: '0px',
@@ -254,14 +256,11 @@ export default function App() {
                 },
               }}
               providers={[]}
-              theme="light"
+              theme={theme}
             />
           </div>
 
-          <p
-            className="mt-4 text-center text-xs"
-            style={{ color: 'oklch(0.6 0.01 240)' }}
-          >
+          <p className="mt-4 text-center text-xs text-content-tertiary">
             Your data is encrypted and never shared.
           </p>
         </div>
@@ -270,31 +269,59 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50">
-      <header className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex w-full items-center justify-between px-6 py-4">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-dark-base">
+      <header className="shrink-0 border-b border-border-subtle bg-dark-raised">
+        <div className="flex w-full items-center justify-between px-6 py-3">
           <div className="flex items-center gap-3">
-            <img src="/images/header_logo.png" alt="Joblog" className="h-20 w-20 -my-5 rounded-lg object-contain" />
-            <span className="text-lg font-semibold text-slate-900">Joblog</span>
+            <img src="/images/header_logo.png" alt="Joblog" className="-my-4 h-16 w-16 object-contain" />
+            <span className="text-lg font-semibold text-content-primary">Joblog</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Theme sliding toggle */}
+            <button
+              onClick={() => handleThemeChange(theme === 'dark' ? 'light' : 'dark')}
+              className="relative flex h-7 w-14 items-center rounded-full border border-border-subtle bg-dark-surface p-0.5 transition-colors duration-200"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label="Toggle theme"
+            >
+              {/* Sun icon (left) */}
+              <svg
+                className="absolute left-1.5 h-3.5 w-3.5 text-amber-400"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+              </svg>
+              {/* Moon icon (right) */}
+              <svg
+                className="absolute right-1.5 h-3.5 w-3.5 text-accent"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+              </svg>
+              {/* Sliding knob */}
+              <span
+                className="h-5 w-5 rounded-full bg-content-primary shadow transition-transform duration-200"
+                style={{ transform: theme === 'dark' ? 'translateX(28px)' : 'translateX(0px)' }}
+              />
+            </button>
+
             <button
               onClick={() => setReviewOpen(true)}
-              className="relative rounded-md p-2 text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700"
+              className="relative rounded-lg p-2 text-content-secondary transition-all duration-150 hover:bg-dark-surface hover:text-content-primary"
               title="Needs Review"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
               {reviewCount > 0 && (
-                <span key={reviewCount} className="badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                <span key={reviewCount} className="badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
                   {reviewCount}
                 </span>
               )}
             </button>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="rounded-md p-2 text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-lg p-2 text-content-secondary transition-all duration-150 hover:bg-dark-surface hover:text-content-primary"
               title="Settings"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -304,7 +331,7 @@ export default function App() {
             </button>
             <button
               onClick={() => openCreate('SAVED')}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
             >
               + New application
             </button>
@@ -312,24 +339,23 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col px-6 py-6">
+      <main className="flex min-h-0 flex-1 flex-col px-5 py-4">
         {error && (
-          <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <strong className="font-semibold">API error:</strong> {error}. Make sure the backend is running at{' '}
-            <code className="rounded bg-red-100 px-1">http://localhost:4000</code>.
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <strong className="font-semibold">API error:</strong> {error}
           </div>
         )}
 
         <SummaryBar />
 
-        <div className="mt-6 flex min-h-0 flex-1 flex-col">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-800">Pipeline</h2>
-            <span className="text-xs text-slate-500">Drag cards between columns to update status</span>
+        <div className="mt-4 flex min-h-0 flex-1 flex-col">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-content-primary">Pipeline</h2>
+            <span className="text-xs text-content-tertiary">Drag cards between columns to update status</span>
           </div>
           <div className="min-h-0 flex-1">
             {!isLoaded && isLoading ? (
-              <div className="flex h-full items-center justify-center text-sm text-slate-500">
+              <div className="flex h-full items-center justify-center text-sm text-content-tertiary">
                 Loading applications...
               </div>
             ) : (
