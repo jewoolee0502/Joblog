@@ -274,13 +274,10 @@ export default function App() {
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="flex w-full items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <img src="/images/header_logo.png" alt="Joblog" className="h-9 w-9 rounded-lg object-contain" />
-            <div>
-              <div className="text-lg font-semibold text-slate-900">Joblog</div>
-              <div className="text-xs text-slate-500">Automated job application tracker</div>
-            </div>
+            <img src="/images/header_logo.png" alt="Joblog" className="h-20 w-20 -my-5 rounded-lg object-contain" />
+            <span className="text-lg font-semibold text-slate-900">Joblog</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setReviewOpen(true)}
               className="relative rounded-md p-2 text-slate-500 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700"
@@ -310,12 +307,6 @@ export default function App() {
               className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
               + New application
-            </button>
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="rounded-md px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            >
-              Sign out
             </button>
           </div>
         </div>
@@ -363,7 +354,7 @@ export default function App() {
         onCountChange={setReviewCount}
         refreshKey={needsReviewIds.size}
       />
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onDeepScanStarted={() => setDeepScanActive(true)} />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onDeepScanStarted={() => setDeepScanActive(true)} userEmail={session?.user?.email} />
       <Toaster position="bottom-right" richColors />
     </div>
   );

@@ -9,9 +9,10 @@ interface SettingsPanelProps {
   open: boolean;
   onClose: () => void;
   onDeepScanStarted?: () => void;
+  userEmail?: string;
 }
 
-export function SettingsPanel({ open, onClose, onDeepScanStarted }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, onDeepScanStarted, userEmail }: SettingsPanelProps) {
   const [connections, setConnections] = useState<ConnectionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -74,8 +75,8 @@ export function SettingsPanel({ open, onClose, onDeepScanStarted }: SettingsPane
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
       <div className="backdrop-fade-in absolute inset-0 bg-black/20" onClick={onClose} />
-      <div className="panel-slide-in relative h-full w-full max-w-md overflow-y-auto bg-white shadow-xl">
-        <div className="border-b border-slate-200 px-6 py-4">
+      <div className="panel-slide-in relative flex h-full w-full max-w-md flex-col bg-white shadow-xl">
+        <div className="shrink-0 border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">Settings</h2>
             <button
@@ -89,7 +90,7 @@ export function SettingsPanel({ open, onClose, onDeepScanStarted }: SettingsPane
           </div>
         </div>
 
-        <div className="px-6 py-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
             Email Connections
           </h3>
@@ -155,6 +156,19 @@ export function SettingsPanel({ open, onClose, onDeepScanStarted }: SettingsPane
               and automatically updates your application statuses.
             </p>
           </div>
+
+        </div>
+
+        <div className="shrink-0 border-t border-slate-200 px-6 py-4">
+          {userEmail && (
+            <p className="mb-3 truncate text-xs text-slate-500">{userEmail}</p>
+          )}
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="w-full rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-100"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </div>
