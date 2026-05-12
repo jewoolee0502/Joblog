@@ -163,13 +163,13 @@ function NudgeCard({
       <div className="mt-3 flex gap-2">
         <button
           onClick={onView}
-          className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+          className="rounded-lg bg-content-primary px-3 py-1 text-xs font-medium text-dark-base transition-colors duration-150 hover:opacity-90"
         >
           View Application
         </button>
         <button
           onClick={onDismiss}
-          className="rounded-lg px-3 py-1 text-xs font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-overlay"
+          className="rounded-lg border border-border-subtle px-3 py-1 text-xs font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-overlay hover:text-content-primary"
         >
           Dismiss
         </button>

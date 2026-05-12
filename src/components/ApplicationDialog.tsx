@@ -294,7 +294,7 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-stage-rejected transition-colors duration-150 hover:bg-stage-rejected/10"
+                  className="rounded-lg border border-border-subtle px-3 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-overlay hover:text-stage-rejected"
                 >
                   Delete
                 </button>
@@ -304,13 +304,13 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-surface hover:text-content-primary"
+                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-overlay hover:text-content-primary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+                className="rounded-lg bg-content-primary px-4 py-2 text-sm font-medium text-dark-base transition-colors duration-150 hover:opacity-90"
               >
                 {mode === 'create' ? 'Create' : 'Save changes'}
               </button>

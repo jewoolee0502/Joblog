@@ -129,14 +129,14 @@ export function SettingsPanel({ open, onClose, onDeepScanStarted, userEmail }: S
                   <button
                     onClick={() => handleScan()}
                     disabled={scanning}
-                    className="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover disabled:opacity-50"
+                    className="flex-1 rounded-lg bg-content-primary px-4 py-2 text-sm font-medium text-dark-base transition-colors duration-150 hover:opacity-90 disabled:opacity-50"
                   >
                     {scanning ? 'Scanning...' : 'Scan Now'}
                   </button>
                   <button
                     onClick={() => handleScan(3)}
                     disabled={scanning}
-                    className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-surface hover:text-content-primary disabled:opacity-50"
+                    className="flex-1 rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-overlay hover:text-content-primary disabled:opacity-50"
                   >
                     {scanning ? 'Scanning...' : 'Deep Scan'}
                   </button>
@@ -164,7 +164,7 @@ export function SettingsPanel({ open, onClose, onDeepScanStarted, userEmail }: S
           )}
           <button
             onClick={() => supabase.auth.signOut()}
-            className="w-full rounded-lg border border-stage-rejected/30 bg-stage-rejected/10 px-4 py-2 text-sm font-medium text-stage-rejected transition-colors duration-150 hover:bg-stage-rejected/20"
+            className="w-full rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-overlay hover:text-stage-rejected"
           >
             Sign out
           </button>
@@ -206,14 +206,14 @@ function ConnectionCard({
         {connected ? (
           <button
             onClick={onDisconnect}
-            className="rounded-lg px-3 py-1 text-xs font-medium text-stage-rejected transition-colors duration-150 hover:bg-stage-rejected/10"
+            className="rounded-lg border border-border-subtle px-3 py-1 text-xs font-medium text-content-secondary transition-colors duration-150 hover:bg-dark-overlay hover:text-stage-rejected"
           >
             Disconnect
           </button>
         ) : (
           <button
             onClick={handleConnect}
-            className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+            className="rounded-lg bg-content-primary px-3 py-1 text-xs font-medium text-dark-base transition-colors duration-150 hover:opacity-90"
           >
             Connect
           </button>

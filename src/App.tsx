@@ -331,7 +331,7 @@ export default function App() {
             </button>
             <button
               onClick={() => openCreate('SAVED')}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
+              className="rounded-lg bg-content-primary px-4 py-2 text-sm font-medium text-dark-base transition-all duration-150 hover:opacity-90"
             >
               + New application
             </button>
