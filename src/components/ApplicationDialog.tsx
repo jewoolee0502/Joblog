@@ -129,7 +129,7 @@ export function ApplicationDialog({ open, mode, initialStatus, application, onCl
       onClick={onClose}
     >
       <div
-        className="dialog-scale-in max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border-subtle bg-dark-raised shadow-2xl"
+        className="dialog-scale-in auto-scrollbar max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border-subtle bg-dark-raised shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit}>

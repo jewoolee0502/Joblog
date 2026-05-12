@@ -78,7 +78,7 @@ export function KanbanBoard({ onCardClick, onAddClick }: Props) {
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="kanban-scroll flex h-full w-full divide-x divide-border-subtle overflow-x-auto rounded-lg border border-border-subtle bg-dark-raised/50">
+      <div className="auto-scrollbar flex h-full w-full divide-x divide-border-subtle overflow-x-auto rounded-lg border border-border-subtle bg-dark-raised/50">
         {KANBAN_COLUMNS.map((status) => (
           <KanbanColumn
             key={status}

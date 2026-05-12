@@ -54,7 +54,7 @@ export function ReviewQueue({ open, onClose, onViewApplication, onCountChange, r
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
       <div className="backdrop-fade-in absolute inset-0" style={{ background: 'oklch(0.08 0.01 240 / 0.5)' }} onClick={onClose} />
-      <div className="panel-slide-in relative h-full w-full max-w-lg overflow-y-auto border-l border-border-subtle bg-dark-raised shadow-2xl">
+      <div className="panel-slide-in auto-scrollbar relative h-full w-full max-w-lg overflow-y-auto border-l border-border-subtle bg-dark-raised shadow-2xl">
         <div className="border-b border-border-subtle px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

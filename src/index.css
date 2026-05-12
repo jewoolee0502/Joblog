@@ -93,17 +93,29 @@ body {
   }
 }
 
-/* Hide scrollbar styling for kanban horizontal scroll */
-.kanban-scroll::-webkit-scrollbar {
-  height: 8px;
+/* Auto-hide scrollbar: hidden by default, visible on hover */
+.auto-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
-.kanban-scroll::-webkit-scrollbar-track {
+.auto-scrollbar:hover {
+  scrollbar-color: var(--border-subtle) transparent;
+}
+.auto-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.auto-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
-.kanban-scroll::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
+.auto-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
   border-radius: 9999px;
+  transition: background 0.2s;
 }
-.kanban-scroll::-webkit-scrollbar-thumb:hover {
+.auto-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+}
+.auto-scrollbar:hover::-webkit-scrollbar-thumb:hover {
   background: var(--border-default);
 }

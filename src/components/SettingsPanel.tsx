@@ -89,7 +89,7 @@ export function SettingsPanel({ open, onClose, onDeepScanStarted, userEmail }: S
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className="auto-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-5">
           <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-content-tertiary">
             Email Connections
           </h3>

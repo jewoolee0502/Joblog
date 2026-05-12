@@ -49,7 +49,7 @@ export function KanbanColumn({ status, applications, needsReviewIds, onCardClick
       <div
         ref={setNodeRef}
         className={clsx(
-          'flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto rounded-md p-1 transition-all duration-150',
+          'auto-scrollbar flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto rounded-md p-1 transition-all duration-150',
           isOver && statusDropZone(status),
         )}
       >
