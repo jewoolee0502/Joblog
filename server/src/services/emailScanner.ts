@@ -283,16 +283,11 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
           continue;
         }
 
-        const roleTitle = triage.roleTitle;
         const companyName = triage.companyName;
+        const missingRole = !triage.roleTitle || triage.roleTitle === 'Unknown Role';
+        const roleTitle: string = missingRole ? 'Unknown Role' : triage.roleTitle!;
 
-        console.log(`[triage] "${email.subject}" → ${triage.category} (${triage.confidence.toFixed(2)}) | ${companyName} — ${roleTitle || '(no role)'} | ${triage.reason}`);
-
-        // Bug 2 fix: skip if no meaningful role title was extracted
-        if (!roleTitle || roleTitle === 'Unknown Role') {
-          console.log(`[triage]   ↳ SKIPPED (no role title extracted — cannot create meaningful ticket)`);
-          continue;
-        }
+        console.log(`[triage] "${email.subject}" → ${triage.category} (${triage.confidence.toFixed(2)}) | ${companyName} — ${roleTitle} | ${triage.reason}`);
 
         // Duplicate check
         const existingApps = await prisma.application.findMany({
@@ -339,10 +334,12 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         result.newApplications++;
         console.log(`[triage]   ↳ CREATED ${companyName} — ${roleTitle} (${targetStatus})`);
 
-        if (isReferral || triage.category === 'UNCLEAR') {
-          const nudgeMessage = isReferral
-            ? `Referral detected: "${email.subject}" from ${email.from}. You may need to apply using the referral link. Please review and update the status.`
-            : `Email from ${email.from}: "${email.subject}" — UNCLEAR (${triage.confidence.toFixed(2)}). ${triage.reason}`;
+        if (isReferral || triage.category === 'UNCLEAR' || missingRole) {
+          const nudgeMessage = missingRole
+            ? `Email from ${email.from}: "${email.subject}" — role title could not be extracted. Please update the role title for ${companyName}.`
+            : isReferral
+              ? `Referral detected: "${email.subject}" from ${email.from}. You may need to apply using the referral link. Please review and update the status.`
+              : `Email from ${email.from}: "${email.subject}" — UNCLEAR (${triage.confidence.toFixed(2)}). ${triage.reason}`;
 
           const existingNudge = await prisma.nudge.findFirst({
             where: {
@@ -361,7 +358,7 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
               },
             });
             result.flaggedForReview++;
-            console.log(`[triage]   ↳ FLAGGED for review (${isReferral ? 'referral' : 'unclear'})`);
+            console.log(`[triage]   ↳ FLAGGED for review (${missingRole ? 'missing role' : isReferral ? 'referral' : 'unclear'})`);
           }
         }
       }

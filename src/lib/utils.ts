@@ -12,27 +12,51 @@ export function isStale(app: Application): boolean {
   return daysSince(app.lastUpdatedAt) >= threshold;
 }
 
+export function statusDropZone(status: ApplicationStatus): string {
+  const map: Record<ApplicationStatus, string> = {
+    SAVED:       'bg-stage-saved/10 ring-1 ring-stage-saved/40',
+    APPLIED:     'bg-stage-applied/10 ring-1 ring-stage-applied/40',
+    SCREENING:   'bg-stage-screening/10 ring-1 ring-stage-screening/40',
+    INTERVIEW:   'bg-stage-interview/10 ring-1 ring-stage-interview/40',
+    FINAL_ROUND: 'bg-stage-final/10 ring-1 ring-stage-final/40',
+    OFFER:       'bg-stage-offer/10 ring-1 ring-stage-offer/40',
+    ACCEPTED:    'bg-stage-accepted/10 ring-1 ring-stage-accepted/40',
+    REJECTED:    'bg-stage-rejected/10 ring-1 ring-stage-rejected/40',
+    WITHDRAWN:   'bg-stage-withdrawn/10 ring-1 ring-stage-withdrawn/40',
+    GHOSTED:     'bg-stage-ghosted/10 ring-1 ring-stage-ghosted/40',
+  };
+  return map[status];
+}
+
 export function statusAccent(status: ApplicationStatus): string {
-  switch (status) {
-    case 'SAVED':
-      return 'border-slate-300 bg-slate-50';
-    case 'APPLIED':
-      return 'border-blue-300 bg-blue-50';
-    case 'SCREENING':
-      return 'border-violet-300 bg-violet-50';
-    case 'INTERVIEW':
-      return 'border-purple-300 bg-purple-50';
-    case 'FINAL_ROUND':
-      return 'border-pink-300 bg-pink-50';
-    case 'OFFER':
-      return 'border-emerald-300 bg-emerald-50';
-    case 'ACCEPTED':
-      return 'border-emerald-400 bg-emerald-100';
-    case 'REJECTED':
-      return 'border-red-300 bg-red-50';
-    case 'WITHDRAWN':
-      return 'border-gray-300 bg-gray-50';
-    case 'GHOSTED':
-      return 'border-slate-400 bg-slate-100';
-  }
+  const map: Record<ApplicationStatus, string> = {
+    SAVED:       'border-stage-saved/30 bg-stage-saved/8',
+    APPLIED:     'border-stage-applied/30 bg-stage-applied/8',
+    SCREENING:   'border-stage-screening/30 bg-stage-screening/8',
+    INTERVIEW:   'border-stage-interview/30 bg-stage-interview/8',
+    FINAL_ROUND: 'border-stage-final/30 bg-stage-final/8',
+    OFFER:       'border-stage-offer/30 bg-stage-offer/8',
+    ACCEPTED:    'border-stage-accepted/30 bg-stage-accepted/8',
+    REJECTED:    'border-stage-rejected/30 bg-stage-rejected/8',
+    WITHDRAWN:   'border-stage-withdrawn/30 bg-stage-withdrawn/8',
+    GHOSTED:     'border-stage-ghosted/30 bg-stage-ghosted/8',
+  };
+  return map[status];
+}
+
+/** Tailwind color class for the status dot/indicator */
+export function statusDot(status: ApplicationStatus): string {
+  const map: Record<ApplicationStatus, string> = {
+    SAVED:       'bg-stage-saved',
+    APPLIED:     'bg-stage-applied',
+    SCREENING:   'bg-stage-screening',
+    INTERVIEW:   'bg-stage-interview',
+    FINAL_ROUND: 'bg-stage-final',
+    OFFER:       'bg-stage-offer',
+    ACCEPTED:    'bg-stage-accepted',
+    REJECTED:    'bg-stage-rejected',
+    WITHDRAWN:   'bg-stage-withdrawn',
+    GHOSTED:     'bg-stage-ghosted',
+  };
+  return map[status];
 }

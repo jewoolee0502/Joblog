@@ -44,7 +44,7 @@ export const CONFIDENCE_THRESHOLDS = {
 export const TRIAGE_BATCH_SIZE = 50;
 
 /** Max chars of email body sent to the classifier (PRD §4.3). */
-export const EMAIL_BODY_MAX_CHARS = 500;
+export const EMAIL_BODY_MAX_CHARS = 1500;
 
 /** Max chars for JD snapshots (PRD §5). */
 export const JD_MAX_CHARS = 10_000;

@@ -1,5 +1,13 @@
 import { useApplicationStore } from '@/store/applicationStore';
 
+const STAT_ACCENTS = [
+  'border-t-content-tertiary',
+  'border-t-accent',
+  'border-t-stage-screening',
+  'border-t-stage-interview',
+  'border-t-stage-offer',
+];
+
 export function SummaryBar() {
   const apps = useApplicationStore((s) => s.applications);
   const total = apps.length;
@@ -24,16 +32,16 @@ export function SummaryBar() {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-      {stats.map((s) => (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      {stats.map((s, i) => (
         <div
           key={s.label}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
+          className={`rounded-lg border border-t-2 ${STAT_ACCENTS[i]} border-border-subtle bg-dark-raised px-4 py-3 transition-all duration-150 hover:bg-dark-surface`}
         >
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          <div className="text-[11px] font-medium uppercase tracking-wider text-content-tertiary">
             {s.label}
           </div>
-          <div className="mt-1 text-2xl font-semibold text-slate-900">{s.value}</div>
+          <div className="mt-1 text-xl font-semibold text-content-primary">{s.value}</div>
         </div>
       ))}
     </div>
