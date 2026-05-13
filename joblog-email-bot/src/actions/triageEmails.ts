@@ -30,6 +30,15 @@ CRITICAL: For roleTitle, extract the EXACT job title as written in the email. Do
 - If the email says "Junior AI Engineer", return "Junior AI Engineer" (NOT "Software Engineer")
 - If the email says "Full Stack Developer (TypeScript, React, Node.js)", return that exact string
 
+ROLE TITLE EXTRACTION: The role title is NOT always in the subject line. You MUST search the full email body carefully. Confirmation and acknowledgement emails often bury the role title in the body text. Look for these common patterns:
+- "You applied for [Role]" or "Your application for [Role]"
+- "Position: [Role]" or "Role: [Role]" or "Job Title: [Role]"
+- "Thank you for applying to the [Role] position"
+- "[Role] at [Company]" or "[Role] - [Company]"
+- "the [Role] role" or "the position of [Role]"
+- Workday/Greenhouse/Lever confirmation templates that list the role in the body
+If you find a role title anywhere in the email (subject OR body), you MUST return it. Only return null if the role truly cannot be determined from any part of the email.
+
 If the email is in a non-English language (e.g. French), translate and understand it the same way as English emails.`;
 
 const triageSchema = z.object({
