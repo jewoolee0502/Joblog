@@ -271,10 +271,15 @@ export default function App() {
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-dark-base">
       <header className="shrink-0 border-b border-border-subtle bg-dark-raised">
-        <div className="flex w-full items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-3">
-            <img src="/images/header_logo.png" alt="Joblog" className="-my-4 h-16 w-16 object-contain" />
-            <span className="text-lg font-semibold text-content-primary">Joblog</span>
+        <div className="flex w-full items-center justify-between pr-6 py-3">
+          <div className="flex items-center gap-0">
+            <img src="/images/header_logo.png" alt="Joblog" className="-my-14 -ml-8 -mr-16 h-44 w-auto object-contain" />
+            <span
+              className="text-xl tracking-tight text-content-primary"
+              style={{ fontFamily: '"Nunito", sans-serif', fontWeight: 800 }}
+            >
+              Job<span className="text-accent">log</span>
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {/* Theme sliding toggle */}
