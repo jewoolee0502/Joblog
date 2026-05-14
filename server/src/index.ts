@@ -16,6 +16,7 @@ const app = express();
 const PORT = Number(process.env.PORT ?? 4000);
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? 'http://localhost:5173';
 
+console.log('[cors] WEB_ORIGIN =', JSON.stringify(WEB_ORIGIN));
 app.use(cors({ origin: [WEB_ORIGIN, /^chrome-extension:\/\//], credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
