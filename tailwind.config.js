@@ -27,10 +27,7 @@ export default {
         stage: {
           saved: 'oklch(0.70 0.02 240)',
           applied: 'oklch(0.70 0.16 240)',
-          screening: 'oklch(0.70 0.16 290)',
           interview: 'oklch(0.70 0.16 310)',
-          final: 'oklch(0.75 0.16 340)',
-          offer: 'oklch(0.75 0.16 155)',
           accepted: 'oklch(0.70 0.16 155)',
           rejected: 'oklch(0.70 0.18 25)',
           withdrawn: 'oklch(0.60 0.02 240)',

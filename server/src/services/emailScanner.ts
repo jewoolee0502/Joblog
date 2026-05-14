@@ -159,14 +159,19 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
         const classification = classifications[j];
         if (!classification) continue;
 
-        const category = classification.category as ClassificationCategory;
+        // Remap removed categories: SCREENING/FINAL_ROUND → INTERVIEW, OFFER → ACCEPTED
+        let category = classification.category as string;
+        if (category === 'SCREENING' || category === 'FINAL_ROUND') category = 'INTERVIEW';
+        if (category === 'OFFER') category = 'ACCEPTED';
+        const typedCategory = category as ClassificationCategory;
+
         const roleIdx = Math.max(0, Math.min(classification.matchedRoleIndex ?? 0, candidates.length - 1));
         const app = candidates[roleIdx];
 
         // Log every classification decision
-        console.log(`[classify] "${email.subject}" → ${category} (${classification.confidence.toFixed(2)}) | role[${roleIdx}]: "${app.roleTitle}" | ${classification.reason}`);
+        console.log(`[classify] "${email.subject}" → ${typedCategory} (${classification.confidence.toFixed(2)}) | role[${roleIdx}]: "${app.roleTitle}" | ${classification.reason}`);
 
-        if (!CLASSIFICATION_CATEGORIES.includes(category) || category === 'UNCLEAR') {
+        if (!CLASSIFICATION_CATEGORIES.includes(typedCategory) || typedCategory === 'UNCLEAR') {
           // Re-route UNCLEAR emails to triage so they can create new applications
           // (e.g., email about a role not in candidateRoles)
           unclearFromClassify.push(email);
@@ -174,9 +179,9 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
           continue;
         }
 
-        // Category IS the target status (no mapping needed)
-        const targetStatus = category;
-        const threshold = category === 'REJECTED'
+        // Category IS the target status (after remapping)
+        const targetStatus = typedCategory;
+        const threshold = typedCategory === 'REJECTED'
           ? CONFIDENCE_THRESHOLDS.REJECTED
           : CONFIDENCE_THRESHOLDS.default;
 
@@ -201,7 +206,7 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
             data: {
               applicationId: app.id,
               nudgeType: 'email_review',
-              message: `Email from ${email.from}: "${email.subject}" — ${category} (${classification.confidence.toFixed(2)}). ${classification.reason}`,
+              message: `Email from ${email.from}: "${email.subject}" — ${typedCategory} (${classification.confidence.toFixed(2)}). ${classification.reason}`,
             },
           });
           result.flaggedForReview++;
@@ -277,6 +282,10 @@ export async function runEmailScan(userId: string, sinceOverride?: string): Prom
           console.log(`[triage] "${email.subject}" → NOT JOB RELATED | ${triage.reason}`);
           continue;
         }
+
+        // Remap removed categories: SCREENING/FINAL_ROUND → INTERVIEW, OFFER → ACCEPTED
+        if (triage.category === 'SCREENING' || triage.category === 'FINAL_ROUND') triage.category = 'INTERVIEW';
+        if (triage.category === 'OFFER') triage.category = 'ACCEPTED';
 
         if (!triage.companyName) {
           console.log(`[triage] "${email.subject}" → JOB RELATED but no company extracted | ${triage.reason}`);

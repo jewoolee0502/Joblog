@@ -3,21 +3,21 @@ import { useApplicationStore } from '@/store/applicationStore';
 const STAT_ACCENTS = [
   'border-t-content-tertiary',
   'border-t-accent',
-  'border-t-stage-screening',
   'border-t-stage-interview',
-  'border-t-stage-offer',
+  'border-t-stage-interview',
+  'border-t-stage-accepted',
 ];
 
 export function SummaryBar() {
   const apps = useApplicationStore((s) => s.applications);
   const total = apps.length;
   const responded = apps.filter((a) =>
-    ['SCREENING', 'INTERVIEW', 'FINAL_ROUND', 'OFFER', 'ACCEPTED', 'REJECTED'].includes(a.status),
+    ['INTERVIEW', 'ACCEPTED', 'REJECTED'].includes(a.status),
   ).length;
   const interviews = apps.filter((a) =>
-    ['INTERVIEW', 'FINAL_ROUND', 'OFFER', 'ACCEPTED'].includes(a.status),
+    ['INTERVIEW', 'ACCEPTED'].includes(a.status),
   ).length;
-  const offers = apps.filter((a) => ['OFFER', 'ACCEPTED'].includes(a.status)).length;
+  const accepted = apps.filter((a) => a.status === 'ACCEPTED').length;
   const submitted = apps.filter((a) => a.status !== 'SAVED').length;
 
   const responseRate = submitted ? Math.round((responded / submitted) * 100) : 0;
@@ -28,7 +28,7 @@ export function SummaryBar() {
     { label: 'Submitted', value: submitted },
     { label: 'Response rate', value: `${responseRate}%` },
     { label: 'Interview rate', value: `${interviewRate}%` },
-    { label: 'Offers', value: offers },
+    { label: 'Accepted', value: accepted },
   ];
 
   return (

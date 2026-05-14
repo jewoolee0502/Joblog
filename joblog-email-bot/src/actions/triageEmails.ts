@@ -19,10 +19,9 @@ NOT job-related (mark isJobRelated = false):
 
 STATUS CATEGORIES (use these exact values):
 - APPLIED — Company confirmed receipt of the application
-- SCREENING — Company is requesting an assessment, phone screen, or coding test
-- INTERVIEW — Company is inviting to an interview
+- INTERVIEW — Company is requesting an assessment, phone screen, coding test, or inviting to an interview. All screening and interview-related emails belong here.
 - REJECTED — Company is rejecting the application
-- OFFER — Company is extending an offer
+- ACCEPTED — Company is extending a job offer or accepting the user for the role
 - REFERRAL — Someone referred the user for a role, but no application has been submitted yet. Do NOT classify referrals as APPLIED.
 - UNCLEAR — Not about a job application status
 
@@ -43,7 +42,7 @@ If the email is in a non-English language (e.g. French), translate and understan
 
 const triageSchema = z.object({
   isJobRelated: z.boolean(),
-  category: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'REJECTED', 'OFFER', 'UNCLEAR', 'REFERRAL']),
+  category: z.enum(['APPLIED', 'INTERVIEW', 'REJECTED', 'ACCEPTED', 'UNCLEAR', 'REFERRAL']),
   confidence: z.number().min(0).max(1),
   reason: z.string(),
   companyName: z.string().nullable(),
