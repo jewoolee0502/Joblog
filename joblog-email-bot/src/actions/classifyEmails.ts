@@ -15,10 +15,9 @@ PROCESSING RULES:
 
 STATUS CATEGORIES:
 - APPLIED — Company confirmed receipt of the user's job application ("we received your application", "thank you for applying"). Even if next steps are mentioned, if the PRIMARY purpose is confirming receipt, classify as APPLIED.
-- SCREENING — Company is ACTIVELY requesting the user to do something NEW: schedule a phone screen, take an online assessment, complete a coding test. Must be a concrete NEW action request.
-- INTERVIEW — Company is inviting the user to a NEW interview with a date/time or scheduling link not yet attended.
+- INTERVIEW — Company is requesting the user to do something: schedule a phone screen, take an online assessment, complete a coding test, or attend an interview. Any screening, assessment, or interview invitation belongs here.
 - REJECTED — Company is rejecting the user's application.
-- OFFER — Company is extending a job offer.
+- ACCEPTED — Company is extending a job offer or the user has been accepted for the role.
 - UNCLEAR — The email is NOT about any of the candidate roles' application status. This includes: account notifications, marketing emails, interview confirmations for already-booked interviews, reminders for already-triggered actions.
 
 IMPORTANT:
@@ -28,7 +27,7 @@ IMPORTANT:
 - If the email is in a non-English language (e.g. French), translate and understand it fully before classifying.`;
 
 const classificationSchema = z.object({
-  category: z.enum(['APPLIED', 'SCREENING', 'INTERVIEW', 'REJECTED', 'OFFER', 'UNCLEAR']),
+  category: z.enum(['APPLIED', 'INTERVIEW', 'REJECTED', 'ACCEPTED', 'UNCLEAR']),
   confidence: z.number().min(0).max(1),
   reason: z.string(),
   matchedRoleIndex: z.number().describe('0-based index into the candidateRoles list. MUST be a valid index — do NOT invent roles.'),

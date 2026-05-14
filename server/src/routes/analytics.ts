@@ -4,15 +4,12 @@ import { prisma } from '../db.js';
 const router = Router();
 
 const RESPONDED_STATUSES = [
-  'SCREENING',
   'INTERVIEW',
-  'FINAL_ROUND',
-  'OFFER',
   'ACCEPTED',
   'REJECTED',
 ];
-const INTERVIEW_PLUS = ['INTERVIEW', 'FINAL_ROUND', 'OFFER', 'ACCEPTED'];
-const OFFER_PLUS = ['OFFER', 'ACCEPTED'];
+const INTERVIEW_PLUS = ['INTERVIEW', 'ACCEPTED'];
+const OFFER_PLUS = ['ACCEPTED'];
 
 // GET /api/analytics/summary
 router.get('/summary', async (req, res, next) => {

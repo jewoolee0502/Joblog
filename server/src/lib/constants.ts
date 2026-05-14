@@ -2,10 +2,7 @@
 export const STAGE_ORDER = [
   'SAVED',
   'APPLIED',
-  'SCREENING',
   'INTERVIEW',
-  'FINAL_ROUND',
-  'OFFER',
   'ACCEPTED',
   'REJECTED',
   'WITHDRAWN',
@@ -25,10 +22,9 @@ export const TERMINAL_STATUSES: ApplicationStatus[] = [
 /** Email classification categories — unified with kanban statuses (no mapping needed). */
 export const CLASSIFICATION_CATEGORIES = [
   'APPLIED',
-  'SCREENING',
   'INTERVIEW',
   'REJECTED',
-  'OFFER',
+  'ACCEPTED',
   'UNCLEAR',
 ] as const;
 
